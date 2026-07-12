@@ -13,6 +13,57 @@ Operational Action"* problem statement.
   periodicity, debit-balance exposure freeze) checked against a synthetic broker
   dataset, plus a live "amendment" demo showing a verdict flip when SEBI tightens a rule.
 
+![RegCheck landing page hero](./docs/screenshots/landing-hero.png)
+
+---
+
+## Screenshots
+
+<table>
+<tr>
+<td width="50%">
+
+**Compliance Scorecard** — every obligation, PASS/FAIL, with the clause that proves it
+![Scorecard](./docs/screenshots/dashboard-scorecard.png)
+
+</td>
+<td width="50%">
+
+**Coverage Map** — the honest 3-tier split (auto / evidence / judgment) + coverage %
+![Coverage Map](./docs/screenshots/dashboard-coverage.png)
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**Rules Explorer** — confidence scores, citations, and the human-approval gate
+![Rules Explorer](./docs/screenshots/dashboard-rules.png)
+
+</td>
+<td width="50%">
+
+**Amendment Simulator** — tighten a rule, watch the verdict flip live (the demo centerpiece)
+![Amendment Simulator](./docs/screenshots/dashboard-amendment.png)
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**Early-Warning Calendar** — obligations approaching their next deadline
+![Early Warnings](./docs/screenshots/dashboard-warnings.png)
+
+</td>
+<td width="50%">
+
+**Remediation** — every FAIL turned into an owned work item
+![Remediation](./docs/screenshots/dashboard-remediation.png)
+
+</td>
+</tr>
+</table>
+
 ---
 
 ## The problem
@@ -243,6 +294,9 @@ Dashboard at `http://localhost:5173`. It talks to the backend via `VITE_API_URL`
    periodicity slider from 182 days down toward 91 days, click **Simulate amendment**.
    Watch PASS flip to FAIL live, with the same clause citation and a before/after
    explanation — this is a SEBI amendment being operationalized in under a second.
+
+   ![Amendment Simulator verdict flip](./docs/screenshots/dashboard-amendment.png)
+
 6. **Early-Warning Calendar** — the VAPT check is currently a PASS with only 15 days of
    headroom before its next deadline; this is exactly what a compliance officer would
    want flagged before it becomes a FAIL.
