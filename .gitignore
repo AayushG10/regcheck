@@ -1,0 +1,21 @@
+# envs
+.env
+backend/.env
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# node
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env.local
+
+# generated/live data
+backend/data/rules.live.json
+
+# os
+.DS_Store

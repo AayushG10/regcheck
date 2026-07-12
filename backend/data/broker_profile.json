@@ -1,0 +1,70 @@
+{
+  "broker_name": "Zenith Capital Securities Pvt. Ltd.",
+  "member_id": "INZ000012345",
+  "broker_category": "Category I",
+  "is_qualified_stock_broker": true,
+  "as_of_date": "2026-07-11",
+  "note": "SYNTHETIC DEMO DATA. Not a real SEBI-registered entity. See README for why real broker data cannot be sourced from SEBI's public disclosures (SEBI publishes only aggregate SCORES statistics, not per-broker operational records) — a real deployment would pull this from the broker's own back-office systems or from SEBI's Innovation Sandbox using anonymized test data.",
+
+  "net_worth": {
+    "current_net_worth_inr": 36000000,
+    "required_net_worth_inr": 50000000,
+    "financial_year_end_date": "2026-03-31",
+    "certificate_submission_date": "2026-06-21"
+  },
+
+  "complaints": {
+    "pending_complaints_total_value_inr": 15000000,
+    "items": [
+      { "id": "CMP-2201", "client": "R. Malhotra", "amount_inr": 6200000, "filed_date": "2026-05-02", "status": "pending", "reason": "Disputed brokerage charges" },
+      { "id": "CMP-2214", "client": "S. Iyer", "amount_inr": 4800000, "filed_date": "2026-06-01", "status": "pending", "reason": "Delayed securities pay-out" },
+      { "id": "CMP-2229", "client": "N. Verma", "amount_inr": 4000000, "filed_date": "2026-06-18", "status": "pending", "reason": "Unauthorized trade allegation" }
+    ]
+  },
+
+  "running_account": {
+    "last_settlement_date": "2026-04-02",
+    "settlement_type": "90-day (default)",
+    "clients_on_running_account": 4820
+  },
+
+  "internal_audit": {
+    "last_filed_date": "2026-05-20",
+    "period_end_date": "2026-03-31",
+    "auditor": "R. Sharma & Associates, Chartered Accountants"
+  },
+
+  "monthly_upload": {
+    "period_end_date": "2026-06-30",
+    "last_upload_date": "2026-07-09",
+    "exchange": "NSE / BSE"
+  },
+
+  "system_audit": {
+    "last_audit_date": "2026-01-15",
+    "auditor": "CyberSafe Systems Audit LLP (CERT-In empanelled)"
+  },
+
+  "vapt": {
+    "last_vapt_date": "2026-01-25",
+    "vendor": "SecureEdge InfoSec Pvt. Ltd.",
+    "critical_findings_open": 0
+  },
+
+  "debit_balance": {
+    "debit_arose_date": "2026-06-20",
+    "client": "K. Bansal",
+    "amount_inr": 920000,
+    "cleared": false,
+    "further_exposure_given_after_day5": true,
+    "further_exposure_amount_inr": 250000,
+    "further_exposure_date": "2026-06-29"
+  },
+
+  "grievance_mechanism": {
+    "dedicated_staff_count": 3,
+    "avg_resolution_days": 21,
+    "escalation_matrix_defined": true,
+    "note": "Qualitative adequacy of this mechanism is a human-judgment call — see rule-grievance-mechanism-adequacy."
+  }
+}

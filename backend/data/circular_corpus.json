@@ -1,0 +1,66 @@
+{
+  "circular_name": "SEBI Master Circular for Stock Brokers",
+  "note": "Clause text below is a condensed paraphrase of the obligations at the cited paragraphs of SEBI's Master Circular for Stock Brokers, used as the ingest corpus for the extraction pipeline. Paragraph numbers are as specified in the problem brief.",
+  "clauses": [
+    {
+      "clause_id": "para-15.10",
+      "para": "15.10",
+      "title": "Running Account Settlement of Client Funds/Securities",
+      "text": "A stock broker maintaining a running account for a client shall settle the client's funds and securities at least once in 90 days (or 30 days if the client so opts), after adjusting for any obligations due. Failure to settle within the prescribed periodicity is a violation of the running account framework."
+    },
+    {
+      "clause_id": "para-13.2.3",
+      "para": "13.2.3",
+      "title": "Internal Audit — Filing Deadlines",
+      "text": "Every stock broker shall conduct an internal audit on a half-yearly basis by an independent qualified Chartered Accountant / Company Secretary / Cost Accountant. The internal audit report for the half-year ending September 30 shall be submitted by November 30, and for the half-year ending March 31 shall be submitted by May 31."
+    },
+    {
+      "clause_id": "para-15.8.1.1-networth",
+      "para": "15.8.1.1",
+      "title": "Minimum Net Worth Requirement",
+      "text": "A stock broker shall at all times maintain a net worth of not less than 75% of the applicable minimum net worth prescribed for its category of registration. Net worth falling below this threshold shall be treated as non-compliance requiring immediate remedial action."
+    },
+    {
+      "clause_id": "para-15.8.1.1-complaints",
+      "para": "15.8.1.1",
+      "title": "Pending Investor Complaints vs Net Worth",
+      "text": "The aggregate value of a stock broker's pending investor complaints (i.e., the monetary value under dispute) shall not exceed 50% of the broker's net worth at any point in time. Breach of this threshold indicates elevated investor-protection risk requiring escalation."
+    },
+    {
+      "clause_id": "para-15.9.1.4",
+      "para": "15.9.1.4",
+      "title": "Monthly Upload of Client Funds/Securities Data",
+      "text": "Stock brokers shall upload data relating to client funds and securities balances to the relevant stock exchange system within 7 days from the end of every month. Delayed upload beyond the 7-day window constitutes a reporting lapse."
+    },
+    {
+      "clause_id": "para-15.8.1.1-certificate",
+      "para": "15.8.1.1",
+      "title": "Net Worth Certificate Submission",
+      "text": "A stock broker shall submit a net worth certificate, duly certified by a practicing Chartered Accountant, to the stock exchange within 60 days from the end of the relevant financial year. The certificate is the primary evidentiary proof of the broker's compliance with net worth norms."
+    },
+    {
+      "clause_id": "para-16-table8",
+      "para": "16, Table 8",
+      "title": "System Audit Periodicity by Broker Category",
+      "text": "Stock brokers shall undergo a system audit conducted by a CERT-In empanelled auditor at a periodicity determined by their category, as set out in Table 8: Category I brokers annually, Category II brokers once every two years, and Category III brokers once every two years, with the audit report to be submitted to the exchange within the prescribed window."
+    },
+    {
+      "clause_id": "para-18.5.5.8-9",
+      "para": "18.5.5.8-9",
+      "title": "Vulnerability Assessment and Penetration Testing (VAPT) for Qualified Stock Brokers",
+      "text": "Qualified Stock Brokers (QSBs) shall conduct Vulnerability Assessment and Penetration Testing (VAPT) of their applications and infrastructure at least once every six months, and shall remediate any critical vulnerabilities identified without delay. The periodicity may be tightened by subsequent SEBI circulars."
+    },
+    {
+      "clause_id": "para-15.4.4.4",
+      "para": "15.4.4.4",
+      "title": "No Further Exposure on Client Debit Balances",
+      "text": "Where a client's ledger account shows a debit balance arising from a transaction not reversed within the prescribed period, the stock broker shall not provide any further exposure to that client after 5 trading days from the date the debit balance first arose, until the debit is cleared."
+    },
+    {
+      "clause_id": "para-15.13-illustrative",
+      "para": "15.13 (illustrative)",
+      "title": "Adequacy of Grievance Redressal Mechanism",
+      "text": "A stock broker's investor grievance redressal mechanism shall be fair, transparent, and adequately resourced to resolve complaints in a timely manner. Adequacy of the mechanism (staffing, escalation design, root-cause remediation) is a qualitative supervisory assessment rather than a single measurable data point, and is included here to illustrate the human-judgment tier of the triage stage."
+    }
+  ]
+}
