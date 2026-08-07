@@ -51,6 +51,20 @@ Operational Action"* problem statement.
 <tr>
 <td width="50%">
 
+**Circular Monitor** — the agentic loop: a new circular is matched to the obligation it amends and the LLM drafts the fix
+![Circular Monitor](./docs/screenshots/dashboard-monitor.png)
+
+</td>
+<td width="50%">
+
+**Run History** — the audit trail: every persisted scorecard run, with the exact rule version behind each verdict
+![Run History](./docs/screenshots/dashboard-runs.png)
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
 **Early-Warning Calendar** — obligations approaching their next deadline
 ![Early Warnings](./docs/screenshots/dashboard-warnings.png)
 
