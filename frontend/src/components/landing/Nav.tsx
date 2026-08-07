@@ -20,7 +20,8 @@ export default function Nav() {
           <a href="#how-it-works" className="transition-colors hover:text-slate-900 dark:hover:text-white">How it works</a>
           <a href="#features" className="transition-colors hover:text-slate-900 dark:hover:text-white">Features</a>
           <a href="#comparison" className="transition-colors hover:text-slate-900 dark:hover:text-white">Why RegCheck</a>
-          <a href="#roi" className="transition-colors hover:text-slate-900 dark:hover:text-white">Impact</a>
+          <a href="#pricing" className="transition-colors hover:text-slate-900 dark:hover:text-white">Pricing</a>
+          <a href="#faq" className="transition-colors hover:text-slate-900 dark:hover:text-white">FAQ</a>
         </nav>
 
         <div className="flex items-center gap-3">
