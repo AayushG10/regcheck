@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Sparkles, ShieldAlert, ShieldCheck, Check } from "lucide-react";
+import { Sparkles, ShieldAlert, ShieldCheck, Check, Search, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,26 @@ export default function RulesExplorer() {
   const { data, loading, error, refetch } = useApi(() => api.getRules());
   const [extracting, setExtracting] = useState<string | null>(null);
   const [approving, setApproving] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get("q") ?? "";
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const q = query.trim().toLowerCase();
+    if (!q) return data;
+    return data.filter(
+      (r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q) ||
+        r.category.toLowerCase().includes(q) ||
+        r.citation.para.toLowerCase().includes(q)
+    );
+  }, [data, query]);
+
+  function setQuery(value: string) {
+    if (value) setSearchParams({ q: value });
+    else setSearchParams({});
+  }
 
   async function handleReExtract(rule: Rule) {
     setExtracting(rule.id);
@@ -65,7 +86,32 @@ export default function RulesExplorer() {
         </div>
       ) : (
         <div className="space-y-3">
-          {data.map((rule) => (
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search rules by title, category, or clause…"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-brand-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {filtered.length === 0 && (
+            <Card className="p-8 text-center text-sm text-slate-400">
+              No rules match "{query}".
+            </Card>
+          )}
+
+          {filtered.map((rule) => (
             <Card key={rule.id} className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">

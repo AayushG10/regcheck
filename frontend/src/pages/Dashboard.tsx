@@ -31,15 +31,30 @@ import RemediationList from "@/components/dashboard/RemediationList";
 import RunHistory from "@/components/dashboard/RunHistory";
 import CircularMonitor from "@/components/dashboard/CircularMonitor";
 
-const NAV_ITEMS = [
-  { to: "/dashboard", end: true, icon: ClipboardCheck, label: "Scorecard" },
-  { to: "/dashboard/coverage", icon: PieChart, label: "Coverage Map" },
-  { to: "/dashboard/rules", icon: BookOpen, label: "Rules Explorer" },
-  { to: "/dashboard/monitor", icon: Radar, label: "Circular Monitor" },
-  { to: "/dashboard/amendment", icon: Wand2, label: "Amendment Simulator" },
-  { to: "/dashboard/warnings", icon: BellRing, label: "Early Warnings" },
-  { to: "/dashboard/remediation", icon: ListTodo, label: "Remediation" },
-  { to: "/dashboard/runs", icon: History, label: "Run History" },
+const NAV_GROUPS = [
+  {
+    label: "Overview",
+    items: [
+      { to: "/dashboard", end: true, icon: ClipboardCheck, label: "Scorecard" },
+      { to: "/dashboard/coverage", icon: PieChart, label: "Coverage Map" },
+    ],
+  },
+  {
+    label: "Rules",
+    items: [
+      { to: "/dashboard/rules", icon: BookOpen, label: "Rules Explorer" },
+      { to: "/dashboard/monitor", icon: Radar, label: "Circular Monitor" },
+      { to: "/dashboard/amendment", icon: Wand2, label: "Amendment Simulator" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { to: "/dashboard/warnings", icon: BellRing, label: "Early Warnings" },
+      { to: "/dashboard/remediation", icon: ListTodo, label: "Remediation" },
+      { to: "/dashboard/runs", icon: History, label: "Run History" },
+    ],
+  },
 ];
 
 export default function Dashboard() {
@@ -95,27 +110,36 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.to}
-              end={item.end}
-              onClick={() => setMobileNavOpen(false)}
-              title={item.label}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  "md:justify-center lg:justify-start",
-                  isActive
-                    ? "bg-brand-50 text-brand-800 dark:bg-brand-900/30 dark:text-brand-300"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                )
-              }
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              <span className="md:hidden lg:inline">{item.label}</span>
-            </NavLink>
+        <nav className="flex-1 space-y-5 overflow-y-auto p-3">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="hidden px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 lg:block">
+                {group.label}
+              </div>
+              <div className="space-y-1">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.label}
+                    to={item.to}
+                    end={item.end}
+                    onClick={() => setMobileNavOpen(false)}
+                    title={item.label}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                        "md:justify-center lg:justify-start",
+                        isActive
+                          ? "bg-brand-50 text-brand-800 dark:bg-brand-900/30 dark:text-brand-300"
+                          : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                      )
+                    }
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="md:hidden lg:inline">{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -152,7 +176,7 @@ export default function Dashboard() {
         <TopBar onOpenMobileNav={() => setMobileNavOpen(true)} />
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-[1400px]">
             <Routes>
               <Route index element={<Scorecard />} />
               <Route path="coverage" element={<CoverageMap />} />

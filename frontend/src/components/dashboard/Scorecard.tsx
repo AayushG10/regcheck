@@ -22,6 +22,7 @@ import ClauseLink from "./ClauseLink";
 import { api, type CheckResult, type Verdict } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import { formatEvidenceValue } from "@/lib/format";
 
 const VERDICT_CONFIG = {
   PASS: { icon: CheckCircle2, badge: "pass" as const, ring: "ring-emerald-200 dark:ring-emerald-900" },
@@ -143,17 +144,17 @@ export default function Scorecard() {
                     </RadialBarChart>
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-bold text-slate-900 dark:text-white">{complianceScore}%</span>
+                    <span className="text-3xl font-bold tabular-nums text-slate-900 dark:text-white">{complianceScore}%</span>
                     <span className="text-[11px] text-slate-400">compliant</span>
                   </div>
                 </div>
                 <div className="mt-4 grid w-full grid-cols-2 gap-3 text-center">
                   <div>
-                    <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{data.passed}</div>
+                    <div className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{data.passed}</div>
                     <div className="text-[11px] text-slate-400">passed</div>
                   </div>
                   <div>
-                    <div className="text-lg font-bold text-rose-600 dark:text-rose-400">{data.failed}</div>
+                    <div className="text-lg font-bold tabular-nums text-rose-600 dark:text-rose-400">{data.failed}</div>
                     <div className="text-[11px] text-slate-400">failed</div>
                   </div>
                 </div>
@@ -330,7 +331,9 @@ function ResultRow({
                     {Object.entries(result.evidence).map(([k, v]) => (
                       <div key={k} className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60">
                         <div className="text-[10px] uppercase tracking-wide text-slate-400">{k.replace(/_/g, " ")}</div>
-                        <div className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">{String(v)}</div>
+                        <div className="truncate text-xs font-medium tabular-nums text-slate-700 dark:text-slate-200">
+                          {formatEvidenceValue(k, v)}
+                        </div>
                       </div>
                     ))}
                   </div>
