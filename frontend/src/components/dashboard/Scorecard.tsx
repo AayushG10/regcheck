@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
+import ErrorCard from "./ErrorCard";
 import ClauseLink from "./ClauseLink";
 import { api, type CheckResult } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
@@ -28,13 +29,9 @@ export default function Scorecard() {
         onRefresh={refetch}
       />
 
-      {error && (
-        <Card className="mb-6 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
-          Failed to load report: {error}
-        </Card>
-      )}
-
-      {loading || !data ? (
+      {error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : loading || !data ? (
         <div className="space-y-4">
           <div className="grid grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}

@@ -3,6 +3,7 @@ import { Cpu, ClipboardCheck, Scale } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
+import ErrorCard from "./ErrorCard";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 
@@ -13,7 +14,7 @@ const TIER_META = {
 };
 
 export default function CoverageMap() {
-  const { data, loading, refetch } = useApi(() => api.getCoverage());
+  const { data, loading, error, refetch } = useApi(() => api.getCoverage());
 
   return (
     <div>
@@ -23,7 +24,9 @@ export default function CoverageMap() {
         onRefresh={refetch}
       />
 
-      {loading || !data ? (
+      {error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : loading || !data ? (
         <Skeleton className="h-96" />
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">

@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
+import ErrorCard from "./ErrorCard";
 import ClauseLink from "./ClauseLink";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
@@ -11,7 +12,7 @@ import { useApi } from "@/lib/hooks";
 const PRIORITY_BADGE = { high: "fail", medium: "warning", low: "neutral" } as const;
 
 export default function RemediationList() {
-  const { data, loading, refetch } = useApi(() => api.getRemediation());
+  const { data, loading, error, refetch } = useApi(() => api.getRemediation());
 
   return (
     <div>
@@ -21,7 +22,9 @@ export default function RemediationList() {
         onRefresh={refetch}
       />
 
-      {loading || !data ? (
+      {error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : loading || !data ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
         </div>

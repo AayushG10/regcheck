@@ -4,12 +4,13 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
+import ErrorCard from "./ErrorCard";
 import ClauseLink from "./ClauseLink";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 
 export default function EarlyWarningCalendar() {
-  const { data, loading, refetch } = useApi(() => api.getWarnings());
+  const { data, loading, error, refetch } = useApi(() => api.getWarnings());
 
   return (
     <div>
@@ -19,7 +20,9 @@ export default function EarlyWarningCalendar() {
         onRefresh={refetch}
       />
 
-      {loading || !data ? (
+      {error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : loading || !data ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
         </div>

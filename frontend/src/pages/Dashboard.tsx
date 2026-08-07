@@ -1,4 +1,6 @@
-import { NavLink, Route, Routes, Link } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Route, Routes, Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   ShieldCheck,
   ClipboardCheck,
@@ -10,9 +12,11 @@ import {
   Moon,
   Sun,
   ArrowLeft,
+  RotateCcw,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { api, ApiError } from "@/lib/api";
 
 import Scorecard from "@/components/dashboard/Scorecard";
 import CoverageMap from "@/components/dashboard/CoverageMap";
@@ -32,6 +36,21 @@ const NAV_ITEMS = [
 
 export default function Dashboard() {
   const { theme, toggleTheme } = useTheme();
+  const [resetting, setResetting] = useState(false);
+  const navigate = useNavigate();
+
+  async function handleReset() {
+    setResetting(true);
+    try {
+      await api.resetDemo();
+      toast.success("Demo data reset", { description: "All rules restored to their seed state." });
+      navigate(0); // full reload so every view refetches clean state
+    } catch (err) {
+      toast.error("Reset failed", { description: err instanceof ApiError ? err.message : "Unknown error" });
+    } finally {
+      setResetting(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -65,6 +84,14 @@ export default function Dashboard() {
         </nav>
 
         <div className="space-y-1 border-t border-slate-200 p-3 dark:border-slate-800">
+          <button
+            onClick={handleReset}
+            disabled={resetting}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            <RotateCcw className={cn("h-4 w-4", resetting && "animate-spin")} />
+            {resetting ? "Resetting…" : "Reset demo"}
+          </button>
           <button
             onClick={toggleTheme}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"

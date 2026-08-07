@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
+import ErrorCard from "./ErrorCard";
 import ClauseLink from "./ClauseLink";
 import { api, ApiError, type Rule } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/utils";
 const TIER_BADGE = { auto: "teal", evidence: "default", judgment: "warning" } as const;
 
 export default function RulesExplorer() {
-  const { data, loading, refetch } = useApi(() => api.getRules());
+  const { data, loading, error, refetch } = useApi(() => api.getRules());
   const [extracting, setExtracting] = useState<string | null>(null);
   const [approving, setApproving] = useState<string | null>(null);
 
@@ -57,7 +58,9 @@ export default function RulesExplorer() {
         onRefresh={refetch}
       />
 
-      {loading || !data ? (
+      {error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : loading || !data ? (
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
