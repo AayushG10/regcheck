@@ -259,6 +259,18 @@ npm run dev
 Dashboard at `http://localhost:5173`. It talks to the backend via `VITE_API_URL`
 (defaults to `http://127.0.0.1:8000`, set in `frontend/.env.local`).
 
+### 4. Tests and the extraction accuracy eval
+
+```bash
+cd backend && source .venv/bin/activate
+python -m pytest -v                # 19 cases over the deterministic rule engine
+python scripts/eval_extraction.py  # real Groq calls, scored against ground truth
+```
+
+The eval script re-runs the actual extraction pipeline against all 10 corpus
+clauses and reports precision/recall/F1 per `check_type`, plus tier accuracy —
+a measured number (currently 80% check_type accuracy), not a claimed one.
+
 ---
 
 ## API endpoints
