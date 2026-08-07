@@ -13,6 +13,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/dashboard/amendment": "Amendment Simulator",
   "/dashboard/warnings": "Early Warnings",
   "/dashboard/remediation": "Remediation",
+  "/dashboard/runs": "Run History",
 };
 
 export default function TopBar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {

@@ -9,6 +9,7 @@ import {
   Wand2,
   BellRing,
   ListTodo,
+  History,
   Moon,
   Sun,
   ArrowLeft,
@@ -26,6 +27,7 @@ import RulesExplorer from "@/components/dashboard/RulesExplorer";
 import AmendmentSimulator from "@/components/dashboard/AmendmentSimulator";
 import EarlyWarningCalendar from "@/components/dashboard/EarlyWarningCalendar";
 import RemediationList from "@/components/dashboard/RemediationList";
+import RunHistory from "@/components/dashboard/RunHistory";
 
 const NAV_ITEMS = [
   { to: "/dashboard", end: true, icon: ClipboardCheck, label: "Scorecard" },
@@ -34,6 +36,7 @@ const NAV_ITEMS = [
   { to: "/dashboard/amendment", icon: Wand2, label: "Amendment Simulator" },
   { to: "/dashboard/warnings", icon: BellRing, label: "Early Warnings" },
   { to: "/dashboard/remediation", icon: ListTodo, label: "Remediation" },
+  { to: "/dashboard/runs", icon: History, label: "Run History" },
 ];
 
 export default function Dashboard() {
@@ -154,6 +157,7 @@ export default function Dashboard() {
               <Route path="amendment" element={<AmendmentSimulator />} />
               <Route path="warnings" element={<EarlyWarningCalendar />} />
               <Route path="remediation" element={<RemediationList />} />
+              <Route path="runs" element={<RunHistory />} />
             </Routes>
           </div>
         </main>

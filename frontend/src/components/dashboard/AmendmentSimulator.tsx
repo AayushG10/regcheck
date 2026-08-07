@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wand2, CheckCircle2, XCircle, ArrowRight, Sparkles, ListChecks } from "lucide-react";
+import { toast } from "sonner";
+import { Wand2, CheckCircle2, XCircle, ArrowRight, Sparkles, ListChecks, History, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,8 @@ export default function AmendmentSimulator() {
   const [result, setResult] = useState<AmendmentResult | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
+  const [committing, setCommitting] = useState(false);
+  const [committed, setCommitted] = useState(false);
 
   const selectedRule = simulatable.find((r) => r.id === selectedId) ?? simulatable[0];
   const param = selectedRule ? getAmendableParam(selectedRule) : null;
@@ -115,12 +118,14 @@ export default function AmendmentSimulator() {
     if (param) setValue(param.originalValue);
     setResult(null);
     setSimError(null);
+    setCommitted(false);
   }, [selectedRule?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function runSimulation() {
     if (!selectedRule || !param) return;
     setSimulating(true);
     setSimError(null);
+    setCommitted(false);
     try {
       const res = await api.simulateAmendment(selectedRule.id, { [param.key]: value });
       setResult(res);
@@ -128,6 +133,22 @@ export default function AmendmentSimulator() {
       setSimError(err instanceof ApiError ? err.message : "Simulation failed");
     } finally {
       setSimulating(false);
+    }
+  }
+
+  async function commitAmendment() {
+    if (!selectedRule || !param) return;
+    setCommitting(true);
+    try {
+      const res = await api.commitAmendment(selectedRule.id, { [param.key]: value });
+      setCommitted(true);
+      toast.success(`Amendment committed — rule now at v${res.rule.version}`, {
+        description: `New run recorded: ${res.run.passed} passed, ${res.run.failed} failed. See Run History for the full audit trail.`,
+      });
+    } catch (err) {
+      toast.error("Commit failed", { description: err instanceof ApiError ? err.message : "Unknown error" });
+    } finally {
+      setCommitting(false);
     }
   }
 
@@ -215,7 +236,14 @@ export default function AmendmentSimulator() {
         <div className="lg:col-span-3">
           <AnimatePresence mode="wait">
             {result ? (
-              <FlipCard key={`${result.rule_id}-${value}`} result={result} param={param} />
+              <FlipCard
+                key={`${result.rule_id}-${value}`}
+                result={result}
+                param={param}
+                onCommit={commitAmendment}
+                committing={committing}
+                committed={committed}
+              />
             ) : (
               <Card className="flex h-full min-h-[420px] flex-col items-center justify-center gap-3 p-10 text-center">
                 <Wand2 className="h-8 w-8 text-slate-300 dark:text-slate-700" />
@@ -232,7 +260,19 @@ export default function AmendmentSimulator() {
   );
 }
 
-function FlipCard({ result, param }: { result: AmendmentResult; param: AmendableParam }) {
+function FlipCard({
+  result,
+  param,
+  onCommit,
+  committing,
+  committed,
+}: {
+  result: AmendmentResult;
+  param: AmendableParam;
+  onCommit: () => void;
+  committing: boolean;
+  committed: boolean;
+}) {
   const before = result.before.verdict;
   const after = result.after.verdict;
   const diff = result.scorecard_diff;
@@ -340,6 +380,40 @@ function FlipCard({ result, param }: { result: AmendmentResult; param: Amendable
               No other obligation's verdict changed — this amendment only affects the rule above.
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-dashed">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">
+              <ShieldCheck className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                This is only a preview — nothing has changed yet.
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Committing creates a new rule version, closes out the old one in the audit trail, and
+                permanently records this scorecard as a new run.
+              </div>
+            </div>
+          </div>
+          <Button
+            variant={committed ? "secondary" : "default"}
+            disabled={committing || committed}
+            onClick={onCommit}
+          >
+            {committed ? (
+              <>
+                <History className="h-4 w-4" /> Committed — view in Run History
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="h-4 w-4" /> {committing ? "Committing…" : "Commit amendment"}
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
     </motion.div>

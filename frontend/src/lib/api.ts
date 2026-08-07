@@ -27,11 +27,19 @@ export interface Rule {
   tier: Tier;
   status: RuleStatus;
   amendable?: boolean;
+  version: number;
+  effective_from: string;
+  effective_to: string | null;
+  supersedes: string | null;
+  drafted_by: string;
+  approved_by: string | null;
+  approved_at: string | null;
 }
 
 export interface CheckResult {
   rule_id: string;
   rule_title: string;
+  rule_version: number;
   clause_id: string;
   citation: ClauseCitation;
   category: string;
@@ -122,6 +130,25 @@ export interface AmendmentResult {
   scorecard_diff: ScorecardDiff;
 }
 
+export interface CheckRun {
+  run_id: string;
+  run_at: string;
+  as_of_date: string;
+  engine_version: string;
+  broker_name: string;
+  total_checked: number;
+  passed: number;
+  failed: number;
+  results: CheckResult[];
+}
+
+export type CheckRunSummary = Omit<CheckRun, "results">;
+
+export interface AmendmentCommitResult {
+  rule: Rule;
+  run: CheckRun;
+}
+
 export interface ExtractionResponse {
   clause_id: string;
   extraction: {
@@ -164,11 +191,15 @@ export const api = {
   getClauses: () => request<CircularCorpus>("/api/clauses"),
   getRules: () => request<Rule[]>("/api/rules"),
   getRule: (id: string) => request<Rule>(`/api/rules/${id}`),
-  approveRule: (id: string, status: RuleStatus = "approved") =>
-    request<Rule>(`/api/rules/${id}/approve`, { method: "POST", body: JSON.stringify({ status }) }),
+  getRuleHistory: (id: string) => request<Rule[]>(`/api/rules/${id}/history`),
+  approveRule: (id: string, status: RuleStatus = "approved", approved_by?: string) =>
+    request<Rule>(`/api/rules/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ status, ...(approved_by ? { approved_by } : {}) }),
+    }),
   extractRule: (clause_id: string, llm_tier: "fast" | "strong" = "fast") =>
     request<ExtractionResponse>("/api/extract", { method: "POST", body: JSON.stringify({ clause_id, llm_tier }) }),
-  runChecks: () => request<ReportResponse>("/api/checks/run", { method: "POST" }),
+  runChecks: () => request<CheckRun>("/api/checks/run", { method: "POST" }),
   getReport: () => request<ReportResponse>("/api/report"),
   getCoverage: () => request<CoverageResponse>("/api/coverage"),
   getWarnings: () => request<EarlyWarning[]>("/api/warnings"),
@@ -178,8 +209,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ rule_id, param_overrides }),
     }),
+  commitAmendment: (rule_id: string, param_overrides: Record<string, unknown>, approved_by?: string) =>
+    request<AmendmentCommitResult>("/api/amendment/commit", {
+      method: "POST",
+      body: JSON.stringify({ rule_id, param_overrides, ...(approved_by ? { approved_by } : {}) }),
+    }),
   getBroker: () => request<Record<string, unknown>>("/api/broker"),
   resetDemo: () => request<{ status: string }>("/api/reset", { method: "POST" }),
+  getRuns: () => request<CheckRunSummary[]>("/api/runs"),
+  getRun: (runId: string) => request<CheckRun>(`/api/runs/${runId}`),
 };
 
 export { ApiError };
