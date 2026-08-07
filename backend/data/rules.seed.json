@@ -4,37 +4,84 @@
     "clause_id": "para-15.10",
     "title": "Running Account Settlement Within 90 Days",
     "description": "Client funds/securities in a running account must be settled at least once every 90 days.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "15.10" },
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "15.10"
+    },
     "category": "Client Funds & Securities",
     "check_type": "periodicity_check",
-    "params": { "last_event_date_field": "running_account.last_settlement_date", "periodicity_days": 90 },
+    "params": {
+      "last_event_date_field": "running_account.last_settlement_date",
+      "periodicity_days": 90
+    },
     "confidence": 0.95,
     "tier": "auto",
-    "status": "approved"
+    "status": "approved",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": "Priya Sharma, Compliance Officer",
+    "approved_at": "2026-04-02T10:15:00"
   },
   {
     "id": "rule-internal-audit-deadline",
     "clause_id": "para-13.2.3",
     "title": "Internal Audit Filed by Nov 30 / May 31",
     "description": "Half-yearly internal audit report must be filed by Nov 30 (H1) or May 31 (H2), and the filed report must be confirmed as genuinely received by the exchange.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "13.2.3" },
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "13.2.3"
+    },
     "category": "Audit & Governance",
     "check_type": "deadline_by_date",
     "params": {
       "filed_date_field": "internal_audit.last_filed_date",
       "period_end_field": "internal_audit.period_end_date",
-      "deadlines": [{ "period_end_month_day": [9, 30], "due_month_day": [11, 30] }, { "period_end_month_day": [3, 31], "due_month_day": [5, 31] }]
+      "deadlines": [
+        {
+          "period_end_month_day": [
+            9,
+            30
+          ],
+          "due_month_day": [
+            11,
+            30
+          ]
+        },
+        {
+          "period_end_month_day": [
+            3,
+            31
+          ],
+          "due_month_day": [
+            5,
+            31
+          ]
+        }
+      ]
     },
     "confidence": 0.9,
     "tier": "evidence",
-    "status": "approved"
+    "status": "approved",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": "Priya Sharma, Compliance Officer",
+    "approved_at": "2026-04-02T10:15:00"
   },
   {
     "id": "rule-networth-minimum",
     "clause_id": "para-15.8.1.1-networth",
-    "title": "Net Worth ≥ 75% of Requirement",
+    "title": "Net Worth \u2265 75% of Requirement",
     "description": "Broker's current net worth must be at least 75% of the category's prescribed minimum net worth.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "15.8.1.1" },
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "15.8.1.1"
+    },
     "category": "Financial Soundness",
     "check_type": "ratio_threshold",
     "params": {
@@ -45,14 +92,24 @@
     },
     "confidence": 0.97,
     "tier": "auto",
-    "status": "approved"
+    "status": "approved",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": "Priya Sharma, Compliance Officer",
+    "approved_at": "2026-04-02T10:15:00"
   },
   {
     "id": "rule-complaints-vs-networth",
     "clause_id": "para-15.8.1.1-complaints",
-    "title": "Pending Complaint Value ≤ 50% of Net Worth",
+    "title": "Pending Complaint Value \u2264 50% of Net Worth",
     "description": "The aggregate value of pending investor complaints must not exceed 50% of the broker's net worth.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "15.8.1.1" },
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "15.8.1.1"
+    },
     "category": "Investor Protection",
     "check_type": "ratio_threshold",
     "params": {
@@ -63,71 +120,136 @@
     },
     "confidence": 0.93,
     "tier": "auto",
-    "status": "approved"
+    "status": "approved",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": "Priya Sharma, Compliance Officer",
+    "approved_at": "2026-04-02T10:15:00"
   },
   {
     "id": "rule-monthly-upload-7days",
     "clause_id": "para-15.9.1.4",
     "title": "Monthly Fund/Securities Upload Within 7 Days",
     "description": "Client fund/securities balance data must be uploaded to the exchange within 7 days of month-end.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "15.9.1.4" },
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "15.9.1.4"
+    },
     "category": "Client Funds & Securities",
     "check_type": "days_since_threshold",
-    "params": { "date_field": "monthly_upload.last_upload_date", "reference_field": "monthly_upload.period_end_date", "max_days": 7 },
+    "params": {
+      "date_field": "monthly_upload.last_upload_date",
+      "reference_field": "monthly_upload.period_end_date",
+      "max_days": 7
+    },
     "confidence": 0.94,
     "tier": "auto",
-    "status": "approved"
+    "status": "approved",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": "Priya Sharma, Compliance Officer",
+    "approved_at": "2026-04-02T10:15:00"
   },
   {
     "id": "rule-networth-certificate-60days",
     "clause_id": "para-15.8.1.1-certificate",
     "title": "Net Worth Certificate Within 60 Days",
     "description": "A CA-certified net worth certificate must be submitted to the exchange within 60 days from financial year end, and its authenticity confirmed by a human reviewer.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "15.8.1.1" },
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "15.8.1.1"
+    },
     "category": "Financial Soundness",
     "check_type": "days_since_threshold",
-    "params": { "date_field": "net_worth.certificate_submission_date", "reference_field": "net_worth.financial_year_end_date", "max_days": 60 },
+    "params": {
+      "date_field": "net_worth.certificate_submission_date",
+      "reference_field": "net_worth.financial_year_end_date",
+      "max_days": 60
+    },
     "confidence": 0.82,
     "tier": "evidence",
-    "status": "needs_review"
+    "status": "needs_review",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": null,
+    "approved_at": null
   },
   {
     "id": "rule-system-audit-periodicity",
     "clause_id": "para-16-table8",
     "title": "System Audit Periodicity by Category (Table 8)",
     "description": "System audit by a CERT-In empanelled auditor must be conducted within the periodicity prescribed for the broker's category.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "16, Table 8" },
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "16, Table 8"
+    },
     "category": "Cybersecurity & Systems",
     "check_type": "periodicity_check",
     "params": {
       "last_event_date_field": "system_audit.last_audit_date",
-      "periodicity_days_by_category": { "Category I": 365, "Category II": 730, "Category III": 730 },
+      "periodicity_days_by_category": {
+        "Category I": 365,
+        "Category II": 730,
+        "Category III": 730
+      },
       "category_field": "broker_category"
     },
     "confidence": 0.88,
     "tier": "auto",
-    "status": "approved"
+    "status": "approved",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": "Priya Sharma, Compliance Officer",
+    "approved_at": "2026-04-02T10:15:00"
   },
   {
     "id": "rule-vapt-half-yearly",
     "clause_id": "para-18.5.5.8-9",
     "title": "QSB VAPT Half-Yearly (6 Months)",
-    "description": "Qualified Stock Brokers must run VAPT at least once every 6 months (182 days). Amendable periodicity — used as the amendment-simulator demo rule.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "18.5.5.8-9" },
+    "description": "Qualified Stock Brokers must run VAPT at least once every 6 months (182 days). Amendable periodicity \u2014 used as the amendment-simulator demo rule.",
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "18.5.5.8-9"
+    },
     "category": "Cybersecurity & Systems",
     "check_type": "periodicity_check",
-    "params": { "last_event_date_field": "vapt.last_vapt_date", "periodicity_days": 182 },
+    "params": {
+      "last_event_date_field": "vapt.last_vapt_date",
+      "periodicity_days": 182
+    },
     "confidence": 0.96,
     "tier": "auto",
     "status": "approved",
-    "amendable": true
+    "amendable": true,
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": "Priya Sharma, Compliance Officer",
+    "approved_at": "2026-04-02T10:15:00"
   },
   {
     "id": "rule-no-further-exposure-debit",
     "clause_id": "para-15.4.4.4",
     "title": "No Further Exposure After 5 Trading Days on Debit Balance",
     "description": "No further exposure shall be given to a client whose debit balance has remained unresolved for more than 5 trading days.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "15.4.4.4" },
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "15.4.4.4"
+    },
     "category": "Risk Management",
     "check_type": "no_further_exposure_after_days",
     "params": {
@@ -138,19 +260,36 @@
     },
     "confidence": 0.91,
     "tier": "auto",
-    "status": "approved"
+    "status": "approved",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": "Priya Sharma, Compliance Officer",
+    "approved_at": "2026-04-02T10:15:00"
   },
   {
     "id": "rule-grievance-mechanism-adequacy",
     "clause_id": "para-15.13-illustrative",
     "title": "Grievance Redressal Mechanism Adequacy",
-    "description": "Whether the broker's grievance redressal process is fair, transparent and adequately resourced — a qualitative judgment call that cannot be reduced to a deterministic data check.",
-    "citation": { "circular": "SEBI Master Circular for Stock Brokers", "para": "15.13 (illustrative)" },
+    "description": "Whether the broker's grievance redressal process is fair, transparent and adequately resourced \u2014 a qualitative judgment call that cannot be reduced to a deterministic data check.",
+    "citation": {
+      "circular": "SEBI Master Circular for Stock Brokers",
+      "para": "15.13 (illustrative)"
+    },
     "category": "Investor Protection",
     "check_type": null,
     "params": {},
     "confidence": 0.6,
     "tier": "judgment",
-    "status": "needs_review"
+    "status": "needs_review",
+    "version": 1,
+    "effective_from": "2026-04-01",
+    "effective_to": null,
+    "supersedes": null,
+    "drafted_by": "LLM extraction pipeline",
+    "approved_by": null,
+    "approved_at": null
   }
 ]

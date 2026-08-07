@@ -8,7 +8,7 @@ changes in storage/store.py — these models are the stable contract.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from typing import Any, Optional
 
@@ -39,7 +39,15 @@ class ClauseCitation(BaseModel):
 
 
 class Rule(BaseModel):
-    """A structured, machine-checkable obligation extracted from a SEBI clause."""
+    """A structured, machine-checkable obligation extracted from a SEBI clause.
+
+    Versioned rather than mutated: amending a rule's parameters creates a new
+    `version` with a fresh `effective_from` and closes out the previous
+    version's `effective_to` (see storage/store.py::create_rule_version).
+    This is what lets a historical CheckRun stay judged against the rule
+    version that was actually in force at the time it ran, and is the seam
+    a Neo4j supersession graph would later plug into.
+    """
     id: str
     clause_id: str
     title: str
@@ -53,11 +61,23 @@ class Rule(BaseModel):
     status: RuleStatus
     amendable: bool = False
 
+    # -- versioning ------------------------------------------------------
+    version: int = 1
+    effective_from: date
+    effective_to: Optional[date] = None
+    supersedes: Optional[str] = None  # rule_id + version string of the prior version, if any
+
+    # -- approval provenance (maker-checker) ------------------------------
+    drafted_by: str = "LLM extraction pipeline"
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+
 
 class CheckResult(BaseModel):
     """Deterministic engine output for a single rule run against broker data."""
     rule_id: str
     rule_title: str
+    rule_version: int
     clause_id: str
     citation: ClauseCitation
     category: str
@@ -89,6 +109,25 @@ class EarlyWarning(BaseModel):
     deadline_date: date
     days_remaining: int
     message: str
+
+
+class CheckRun(BaseModel):
+    """An immutable, persisted snapshot of a full scorecard run.
+
+    This is the audit trail: every past run is stored with the exact rule
+    versions and evidence used, so "what did we report on 31 March, and
+    prove it" has a real answer instead of RegCheck only ever being able to
+    recompute the *current* state.
+    """
+    run_id: str
+    run_at: datetime
+    as_of_date: date
+    engine_version: str
+    broker_name: str
+    total_checked: int
+    passed: int
+    failed: int
+    results: list[CheckResult]
 
 
 class ClauseText(BaseModel):

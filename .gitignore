@@ -16,6 +16,8 @@ frontend/.env.local
 
 # generated/live data
 backend/data/rules.live.json
+backend/data/rules.history.json
+backend/data/check_runs.json
 
 # os
 .DS_Store

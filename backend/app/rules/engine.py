@@ -22,6 +22,7 @@ def run_rule(rule: Rule, broker: dict[str, Any]) -> CheckResult:
         return CheckResult(
             rule_id=rule.id,
             rule_title=rule.title,
+            rule_version=rule.version,
             clause_id=rule.clause_id,
             citation=rule.citation,
             category=rule.category,
@@ -39,6 +40,7 @@ def run_rule(rule: Rule, broker: dict[str, Any]) -> CheckResult:
     return CheckResult(
         rule_id=rule.id,
         rule_title=rule.title,
+        rule_version=rule.version,
         clause_id=rule.clause_id,
         citation=rule.citation,
         category=rule.category,

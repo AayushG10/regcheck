@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import threading
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,8 @@ DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 CIRCULAR_CORPUS_PATH = DATA_DIR / "circular_corpus.json"
 RULES_SEED_PATH = DATA_DIR / "rules.seed.json"
 RULES_LIVE_PATH = DATA_DIR / "rules.live.json"  # working copy, mutated by extraction/amendment
+RULES_HISTORY_PATH = DATA_DIR / "rules.history.json"  # append-only: closed-out prior rule versions
+CHECK_RUNS_PATH = DATA_DIR / "check_runs.json"  # append-only: persisted scorecard snapshots
 BROKER_PROFILE_PATH = DATA_DIR / "broker_profile.json"
 
 _lock = threading.Lock()
@@ -44,6 +47,14 @@ class Store:
             with _lock:
                 if not RULES_LIVE_PATH.exists():
                     _write_json(RULES_LIVE_PATH, _read_json(RULES_SEED_PATH))
+        if not RULES_HISTORY_PATH.exists():
+            with _lock:
+                if not RULES_HISTORY_PATH.exists():
+                    _write_json(RULES_HISTORY_PATH, [])
+        if not CHECK_RUNS_PATH.exists():
+            with _lock:
+                if not CHECK_RUNS_PATH.exists():
+                    _write_json(CHECK_RUNS_PATH, [])
 
     # -- circular corpus (read-only ingest source) --------------------
     def get_circular_corpus(self) -> dict[str, Any]:
@@ -81,6 +92,73 @@ class Store:
     def reset_rules_to_seed(self) -> None:
         with _lock:
             _write_json(RULES_LIVE_PATH, _read_json(RULES_SEED_PATH))
+            _write_json(RULES_HISTORY_PATH, [])
+            _write_json(CHECK_RUNS_PATH, [])
+
+    # -- rule versioning (the audit trail's foundation) -------------------
+    def get_rule_history(self, rule_id: str | None = None) -> list[dict[str, Any]]:
+        """Closed-out prior versions of a rule (or all rules if rule_id is None),
+        oldest first. The currently active version lives in rules.live.json,
+        not here — this is only the archive of superseded versions."""
+        with _lock:
+            history = _read_json(RULES_HISTORY_PATH)
+        if rule_id is not None:
+            history = [r for r in history if r["id"] == rule_id]
+        return history
+
+    def create_rule_version(
+        self, rule_id: str, param_updates: dict[str, Any], approved_by: str, effective_date: date | None = None
+    ) -> dict[str, Any]:
+        """Amends a rule by creating a new version rather than mutating the
+        current one in place: the old version is closed out (effective_to
+        set) and archived to rules.history.json, and a new version with the
+        updated params becomes the active row in rules.live.json. A run
+        persisted before this call stays judged against the old version
+        forever — that's the point."""
+        effective_date = effective_date or date.today()
+        with _lock:
+            rules = _read_json(RULES_LIVE_PATH)
+            for i, r in enumerate(rules):
+                if r["id"] == rule_id:
+                    old_version = dict(r)
+                    old_version["effective_to"] = effective_date.isoformat()
+
+                    new_version = dict(r)
+                    new_version["params"] = {**r["params"], **param_updates}
+                    new_version["version"] = r["version"] + 1
+                    new_version["effective_from"] = effective_date.isoformat()
+                    new_version["effective_to"] = None
+                    new_version["supersedes"] = f"{r['id']}@v{r['version']}"
+                    new_version["drafted_by"] = "Agentic amendment loop"
+                    new_version["status"] = "approved"
+                    new_version["approved_by"] = approved_by
+                    new_version["approved_at"] = datetime.now().isoformat()
+
+                    rules[i] = new_version
+                    history = _read_json(RULES_HISTORY_PATH)
+                    history.append(old_version)
+                    _write_json(RULES_HISTORY_PATH, history)
+                    _write_json(RULES_LIVE_PATH, rules)
+                    return new_version
+            raise KeyError(f"Rule '{rule_id}' not found")
+
+    # -- check runs (the audit trail itself) -------------------------------
+    def save_check_run(self, run: dict[str, Any]) -> None:
+        with _lock:
+            runs = _read_json(CHECK_RUNS_PATH)
+            runs.append(run)
+            _write_json(CHECK_RUNS_PATH, runs)
+
+    def get_check_runs(self) -> list[dict[str, Any]]:
+        with _lock:
+            runs = _read_json(CHECK_RUNS_PATH)
+        return sorted(runs, key=lambda r: r["run_at"], reverse=True)
+
+    def get_check_run(self, run_id: str) -> dict[str, Any] | None:
+        for run in self.get_check_runs():
+            if run["run_id"] == run_id:
+                return run
+        return None
 
     # -- broker data (read-only for the demo) --------------------------
     def get_broker_profile(self) -> dict[str, Any]:
