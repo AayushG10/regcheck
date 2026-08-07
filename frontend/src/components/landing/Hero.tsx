@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight, FileText, Sparkles, CheckCircle2, XCircle, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
+import { useApi } from "@/lib/hooks";
 
 export default function Hero() {
   return (
@@ -72,6 +74,8 @@ export default function Hero() {
 }
 
 function HeroVisual() {
+  const { data: coverage } = useApi(() => api.getCoverage());
+
   return (
     <div className="relative mx-auto max-w-md">
       <motion.div
@@ -124,7 +128,9 @@ function HeroVisual() {
         className="card-surface absolute -right-8 -top-6 z-20 flex items-center gap-2 px-3 py-2"
       >
         <div className="h-2 w-2 animate-pulse rounded-full bg-teal-500" />
-        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">70% coverage</span>
+        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+          {coverage ? `${coverage.coverage_pct}% coverage` : "Live coverage"}
+        </span>
       </motion.div>
 
       <div className="absolute inset-0 -z-10 rounded-full bg-gradient-to-tr from-brand-200/40 to-teal-200/40 blur-3xl dark:from-brand-900/30 dark:to-teal-900/30" />

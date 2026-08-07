@@ -1,14 +1,29 @@
 import { motion } from "framer-motion";
 import { SectionHeading } from "./HowItWorks";
-
-const STATS = [
-  { value: "70%", label: "of obligations fully auto-checkable", detail: "in the seeded Master Circular corpus" },
-  { value: "< 1 min", label: "to re-verify after an amendment", detail: "vs. re-reading the circular manually" },
-  { value: "9", label: "real obligations, one scorecard", detail: "each clickable to its SEBI paragraph" },
-  { value: "0", label: "unaudited verdicts", detail: "the LLM drafts, the engine decides" },
-];
+import { api } from "@/lib/api";
+import { useApi } from "@/lib/hooks";
 
 export default function ROI() {
+  const { data: coverage } = useApi(() => api.getCoverage());
+
+  // Coverage % and obligation count are fetched live from /api/coverage rather
+  // than hardcoded, so this section never silently drifts from what the
+  // dashboard actually computes.
+  const stats = [
+    {
+      value: coverage ? `${coverage.coverage_pct}%` : "—",
+      label: "of obligations fully auto-checkable",
+      detail: "computed live from the current rule set",
+    },
+    { value: "< 1 min", label: "to re-verify after an amendment", detail: "vs. re-reading the circular manually" },
+    {
+      value: coverage ? String(coverage.total) : "—",
+      label: "real obligations, one scorecard",
+      detail: "each clickable to its SEBI paragraph",
+    },
+    { value: "0", label: "unaudited verdicts", detail: "the LLM drafts, the engine decides" },
+  ];
+
   return (
     <section id="roi" className="mx-auto max-w-7xl px-6 py-28">
       <SectionHeading
@@ -18,7 +33,7 @@ export default function ROI() {
       />
 
       <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {STATS.map((s, i) => (
+        {stats.map((s, i) => (
           <motion.div
             key={s.label}
             initial={{ opacity: 0, y: 20 }}
