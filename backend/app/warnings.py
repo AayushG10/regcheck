@@ -11,7 +11,12 @@ from typing import Any
 
 from app.storage.models import CheckResult, EarlyWarning, Verdict
 
-WARNING_WINDOW_DAYS = 21
+# Obligations due within this many days are surfaced at all. The frontend
+# further buckets these into "due soon" (<=21 days, matches the original
+# early-warning cutoff) vs "further out" — a broker's compliance calendar
+# is more useful showing the next ~6-7 months of deadlines than only the
+# next three weeks.
+WARNING_WINDOW_DAYS = 200
 
 
 def _parse(d: str) -> date:
