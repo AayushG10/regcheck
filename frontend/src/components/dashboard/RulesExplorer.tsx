@@ -8,11 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
 import ErrorCard from "./ErrorCard";
 import ClauseLink from "./ClauseLink";
+import TierBadge from "./TierBadge";
 import { api, ApiError, type Rule } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-
-const TIER_BADGE = { auto: "teal", evidence: "default", judgment: "warning" } as const;
 
 export default function RulesExplorer() {
   const { data, loading, error, refetch } = useApi(() => api.getRules());
@@ -72,7 +71,7 @@ export default function RulesExplorer() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">{rule.title}</span>
-                    <Badge variant={TIER_BADGE[rule.tier]}>{rule.tier}</Badge>
+                    <TierBadge tier={rule.tier} />
                     {rule.status === "needs_review" ? (
                       <Badge variant="warning"><ShieldAlert className="h-3 w-3" /> needs review</Badge>
                     ) : (
