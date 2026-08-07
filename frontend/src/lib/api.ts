@@ -149,6 +149,16 @@ export interface AmendmentCommitResult {
   run: CheckRun;
 }
 
+export interface AgenticDetectResult {
+  matched_rule: Rule;
+  proposal: {
+    params: Record<string, unknown>;
+    confidence: number;
+    rationale: string;
+  };
+  provider_used: string;
+}
+
 export interface ExtractionResponse {
   clause_id: string;
   extraction: {
@@ -218,6 +228,11 @@ export const api = {
   resetDemo: () => request<{ status: string }>("/api/reset", { method: "POST" }),
   getRuns: () => request<CheckRunSummary[]>("/api/runs"),
   getRun: (runId: string) => request<CheckRun>(`/api/runs/${runId}`),
+  agenticDetect: (notice_text: string, llm_tier: "fast" | "strong" = "fast") =>
+    request<AgenticDetectResult>("/api/agentic/detect", {
+      method: "POST",
+      body: JSON.stringify({ notice_text, llm_tier }),
+    }),
 };
 
 export { ApiError };

@@ -10,6 +10,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/dashboard": "Scorecard",
   "/dashboard/coverage": "Coverage Map",
   "/dashboard/rules": "Rules Explorer",
+  "/dashboard/monitor": "Circular Monitor",
   "/dashboard/amendment": "Amendment Simulator",
   "/dashboard/warnings": "Early Warnings",
   "/dashboard/remediation": "Remediation",

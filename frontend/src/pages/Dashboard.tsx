@@ -10,6 +10,7 @@ import {
   BellRing,
   ListTodo,
   History,
+  Radar,
   Moon,
   Sun,
   ArrowLeft,
@@ -28,11 +29,13 @@ import AmendmentSimulator from "@/components/dashboard/AmendmentSimulator";
 import EarlyWarningCalendar from "@/components/dashboard/EarlyWarningCalendar";
 import RemediationList from "@/components/dashboard/RemediationList";
 import RunHistory from "@/components/dashboard/RunHistory";
+import CircularMonitor from "@/components/dashboard/CircularMonitor";
 
 const NAV_ITEMS = [
   { to: "/dashboard", end: true, icon: ClipboardCheck, label: "Scorecard" },
   { to: "/dashboard/coverage", icon: PieChart, label: "Coverage Map" },
   { to: "/dashboard/rules", icon: BookOpen, label: "Rules Explorer" },
+  { to: "/dashboard/monitor", icon: Radar, label: "Circular Monitor" },
   { to: "/dashboard/amendment", icon: Wand2, label: "Amendment Simulator" },
   { to: "/dashboard/warnings", icon: BellRing, label: "Early Warnings" },
   { to: "/dashboard/remediation", icon: ListTodo, label: "Remediation" },
@@ -154,6 +157,7 @@ export default function Dashboard() {
               <Route index element={<Scorecard />} />
               <Route path="coverage" element={<CoverageMap />} />
               <Route path="rules" element={<RulesExplorer />} />
+              <Route path="monitor" element={<CircularMonitor />} />
               <Route path="amendment" element={<AmendmentSimulator />} />
               <Route path="warnings" element={<EarlyWarningCalendar />} />
               <Route path="remediation" element={<RemediationList />} />
