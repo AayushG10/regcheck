@@ -159,8 +159,9 @@ def simulate_amendment_endpoint(body: AmendmentRequest) -> dict:
     if rule_data is None:
         raise HTTPException(404, f"Rule '{body.rule_id}' not found")
     rule = Rule(**rule_data)
+    all_rules = _load_rules()
     broker = store.get_broker_profile()
-    return simulate_amendment(rule, broker, body.param_overrides)
+    return simulate_amendment(rule, all_rules, broker, body.param_overrides)
 
 
 # ---------------------------------------------------------------------
@@ -169,3 +170,14 @@ def simulate_amendment_endpoint(body: AmendmentRequest) -> dict:
 @router.get("/broker")
 def get_broker() -> dict:
     return store.get_broker_profile()
+
+
+# ---------------------------------------------------------------------
+# Demo reset — restores rules.live.json to the seed state. Exists so one
+# judge/user's Approve clicks or amendment edits don't persist for the
+# next person driving the same running demo.
+# ---------------------------------------------------------------------
+@router.post("/reset")
+def reset_demo() -> dict:
+    store.reset_rules_to_seed()
+    return {"status": "reset"}

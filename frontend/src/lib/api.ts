@@ -93,6 +93,22 @@ export interface CircularCorpus {
   clauses: ClauseText[];
 }
 
+export interface ScorecardDiffEntry {
+  rule_id: string;
+  rule_title: string;
+  before_verdict: Verdict;
+  after_verdict: Verdict;
+}
+
+export interface ScorecardDiff {
+  total_checked: number;
+  before_passed: number;
+  after_passed: number;
+  changed_count: number;
+  unchanged_count: number;
+  changed: ScorecardDiffEntry[];
+}
+
 export interface AmendmentResult {
   rule_id: string;
   rule_title: string;
@@ -103,6 +119,7 @@ export interface AmendmentResult {
   before: CheckResult;
   after: CheckResult;
   flipped: boolean;
+  scorecard_diff: ScorecardDiff;
 }
 
 export interface ExtractionResponse {
@@ -162,6 +179,7 @@ export const api = {
       body: JSON.stringify({ rule_id, param_overrides }),
     }),
   getBroker: () => request<Record<string, unknown>>("/api/broker"),
+  resetDemo: () => request<{ status: string }>("/api/reset", { method: "POST" }),
 };
 
 export { ApiError };

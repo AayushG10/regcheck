@@ -1,31 +1,104 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wand2, CheckCircle2, XCircle, ArrowRight, Sparkles } from "lucide-react";
+import { Wand2, CheckCircle2, XCircle, ArrowRight, Sparkles, ListChecks } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
+import ErrorCard from "./ErrorCard";
 import ClauseLink from "./ClauseLink";
-import { api, type Rule, type AmendmentResult } from "@/lib/api";
+import { api, ApiError, type Rule, type AmendmentResult } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 
-/** Rules whose primary param this UI knows how to tighten. */
-function isSimulatable(rule: Rule) {
-  return rule.check_type === "periodicity_check" && "periodicity_days" in rule.params;
+/**
+ * Describes which single numeric parameter of a rule this UI can tighten/loosen,
+ * and how to present it. Generalized across every check_type that has a single
+ * clear "threshold" knob, rather than hardcoding to periodicity rules only —
+ * SEBI is just as likely to tighten a net-worth ratio or a filing window as a
+ * periodicity requirement.
+ */
+interface AmendableParam {
+  key: string;
+  label: string;
+  originalValue: number;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+}
+
+function getAmendableParam(rule: Rule): AmendableParam | null {
+  const p = rule.params as Record<string, unknown>;
+
+  if (rule.check_type === "periodicity_check" && typeof p.periodicity_days === "number") {
+    const v = p.periodicity_days as number;
+    return {
+      key: "periodicity_days",
+      label: "Required periodicity",
+      originalValue: v,
+      min: 30,
+      max: Math.max(v, 200),
+      step: 1,
+      format: (x) => `every ${x} days (~${(x / 30).toFixed(1)} mo)`,
+    };
+  }
+
+  if (rule.check_type === "ratio_threshold" && typeof p.threshold === "number") {
+    const v = p.threshold as number;
+    return {
+      key: "threshold",
+      label: `Required ratio (${p.operator})`,
+      originalValue: v,
+      min: 0.1,
+      max: 1.0,
+      step: 0.01,
+      format: (x) => `${(x * 100).toFixed(0)}%`,
+    };
+  }
+
+  if (rule.check_type === "days_since_threshold" && typeof p.max_days === "number") {
+    const v = p.max_days as number;
+    return {
+      key: "max_days",
+      label: "Allowed filing window",
+      originalValue: v,
+      min: 1,
+      max: Math.max(v * 2, 14),
+      step: 1,
+      format: (x) => `${x} days`,
+    };
+  }
+
+  if (rule.check_type === "no_further_exposure_after_days" && typeof p.trading_days_threshold === "number") {
+    const v = p.trading_days_threshold as number;
+    return {
+      key: "trading_days_threshold",
+      label: "Trading-day threshold",
+      originalValue: v,
+      min: 1,
+      max: Math.max(v * 2, 10),
+      step: 1,
+      format: (x) => `${x} trading days`,
+    };
+  }
+
+  return null;
 }
 
 export default function AmendmentSimulator() {
-  const { data: rules, loading } = useApi(() => api.getRules());
-  const simulatable = useMemo(() => (rules ?? []).filter(isSimulatable), [rules]);
+  const { data: rules, loading, error } = useApi(() => api.getRules());
+  const simulatable = useMemo(() => (rules ?? []).filter((r) => getAmendableParam(r) !== null), [rules]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [periodicity, setPeriodicity] = useState<number>(182);
+  const [value, setValue] = useState<number>(0);
   const [result, setResult] = useState<AmendmentResult | null>(null);
   const [simulating, setSimulating] = useState(false);
+  const [simError, setSimError] = useState<string | null>(null);
 
   const selectedRule = simulatable.find((r) => r.id === selectedId) ?? simulatable[0];
+  const param = selectedRule ? getAmendableParam(selectedRule) : null;
 
   useEffect(() => {
     if (simulatable.length && !selectedId) {
@@ -33,27 +106,32 @@ export default function AmendmentSimulator() {
       const vapt = simulatable.find((r) => r.id === "rule-vapt-half-yearly");
       const initial = vapt ?? simulatable[0];
       setSelectedId(initial.id);
-      setPeriodicity(initial.params.periodicity_days as number);
+      const p = getAmendableParam(initial);
+      if (p) setValue(p.originalValue);
     }
   }, [simulatable, selectedId]);
 
   useEffect(() => {
-    if (selectedRule) setPeriodicity(selectedRule.params.periodicity_days as number);
+    if (param) setValue(param.originalValue);
     setResult(null);
+    setSimError(null);
   }, [selectedRule?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function runSimulation(days: number) {
-    if (!selectedRule) return;
+  async function runSimulation() {
+    if (!selectedRule || !param) return;
     setSimulating(true);
+    setSimError(null);
     try {
-      const res = await api.simulateAmendment(selectedRule.id, { periodicity_days: days });
+      const res = await api.simulateAmendment(selectedRule.id, { [param.key]: value });
       setResult(res);
+    } catch (err) {
+      setSimError(err instanceof ApiError ? err.message : "Simulation failed");
     } finally {
       setSimulating(false);
     }
   }
 
-  if (loading || !selectedRule) {
+  if (loading || (!selectedRule && !error)) {
     return (
       <div>
         <PageHeader title="Amendment Simulator" subtitle="Loading amendable rules…" />
@@ -62,13 +140,20 @@ export default function AmendmentSimulator() {
     );
   }
 
-  const originalDays = selectedRule.params.periodicity_days as number;
+  if (error || !selectedRule || !param) {
+    return (
+      <div>
+        <PageHeader title="Amendment Simulator" subtitle="Tighten a rule and watch the verdict re-run." />
+        <ErrorCard message={error ?? "No amendable rules found."} />
+      </div>
+    );
+  }
 
   return (
     <div>
       <PageHeader
         title="Amendment Simulator"
-        subtitle="SEBI tightens a rule — tighten one parameter here and watch every affected verdict re-run live, deterministically, with no LLM involved."
+        subtitle="SEBI tightens a rule — adjust one parameter here and watch the deterministic engine re-run the entire scorecard, live, with no LLM involved."
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -78,7 +163,7 @@ export default function AmendmentSimulator() {
               <Wand2 className="h-4 w-4 text-brand-600" /> Choose a rule to amend
             </div>
 
-            <div className="space-y-2">
+            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
               {simulatable.map((rule) => (
                 <button
                   key={rule.id}
@@ -98,29 +183,31 @@ export default function AmendmentSimulator() {
 
             <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
               <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="font-medium text-slate-700 dark:text-slate-200">Required periodicity</span>
-                <span className="font-bold text-brand-700 dark:text-brand-400">
-                  every {periodicity} days (~{(periodicity / 30).toFixed(1)} mo)
-                </span>
+                <span className="font-medium text-slate-700 dark:text-slate-200">{param.label}</span>
+                <span className="font-bold text-brand-700 dark:text-brand-400">{param.format(value)}</span>
               </div>
               <input
                 type="range"
-                min={30}
-                max={Math.max(originalDays, 200)}
-                step={1}
-                value={periodicity}
-                onChange={(e) => setPeriodicity(Number(e.target.value))}
+                min={param.min}
+                max={param.max}
+                step={param.step}
+                value={value}
+                onChange={(e) => setValue(Number(e.target.value))}
                 className="w-full accent-brand-700"
               />
               <div className="mt-1 flex justify-between text-[11px] text-slate-400">
-                <span>Tighter (30 days)</span>
-                <span>Original: {originalDays} days</span>
+                <span>{param.format(param.min)}</span>
+                <span>Original: {param.format(param.originalValue)}</span>
               </div>
 
-              <Button className="mt-5 w-full" disabled={simulating} onClick={() => runSimulation(periodicity)}>
+              <Button className="mt-5 w-full" disabled={simulating} onClick={runSimulation}>
                 <Sparkles className="h-4 w-4" />
                 {simulating ? "Re-running deterministic check…" : "Simulate amendment"}
               </Button>
+
+              {simError && (
+                <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{simError}</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -128,12 +215,12 @@ export default function AmendmentSimulator() {
         <div className="lg:col-span-3">
           <AnimatePresence mode="wait">
             {result ? (
-              <FlipCard key={`${result.rule_id}-${periodicity}`} result={result} />
+              <FlipCard key={`${result.rule_id}-${value}`} result={result} param={param} />
             ) : (
               <Card className="flex h-full min-h-[420px] flex-col items-center justify-center gap-3 p-10 text-center">
                 <Wand2 className="h-8 w-8 text-slate-300 dark:text-slate-700" />
                 <p className="max-w-xs text-sm text-slate-400">
-                  Drag the slider and click "Simulate amendment" to see the verdict re-run against the
+                  Drag the slider and click "Simulate amendment" to re-run the whole scorecard against the
                   same broker data with the new threshold.
                 </p>
               </Card>
@@ -145,9 +232,10 @@ export default function AmendmentSimulator() {
   );
 }
 
-function FlipCard({ result }: { result: AmendmentResult }) {
+function FlipCard({ result, param }: { result: AmendmentResult; param: AmendableParam }) {
   const before = result.before.verdict;
   const after = result.after.verdict;
+  const diff = result.scorecard_diff;
 
   return (
     <motion.div
@@ -155,6 +243,7 @@ function FlipCard({ result }: { result: AmendmentResult }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
       transition={{ duration: 0.3 }}
+      className="space-y-4"
     >
       <Card className={cn("overflow-hidden", result.flipped && "ring-2 ring-amber-300 dark:ring-amber-700")}>
         <CardContent className="p-6">
@@ -174,7 +263,11 @@ function FlipCard({ result }: { result: AmendmentResult }) {
           </div>
 
           <div className="flex items-center justify-center gap-6">
-            <VerdictBadge label="Before" verdict={before} sub={`every ${result.original_params.periodicity_days} days`} />
+            <VerdictBadge
+              label="Before"
+              verdict={before}
+              sub={param.format(result.original_params[param.key] as number)}
+            />
             <motion.div
               animate={{ x: [0, 6, 0] }}
               transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
@@ -184,7 +277,7 @@ function FlipCard({ result }: { result: AmendmentResult }) {
             <VerdictBadge
               label="After"
               verdict={after}
-              sub={`every ${result.amended_params.periodicity_days} days`}
+              sub={param.format(result.amended_params[param.key] as number)}
               highlight={result.flipped}
             />
           </div>
@@ -199,6 +292,54 @@ function FlipCard({ result }: { result: AmendmentResult }) {
               <p className="text-slate-600 dark:text-slate-300">{result.after.explanation}</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+            <ListChecks className="h-4 w-4 text-brand-600" /> Full scorecard impact
+          </div>
+          <div className="mb-4 grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+              <div className="text-lg font-bold text-slate-900 dark:text-white">{diff.total_checked}</div>
+              <div className="text-[11px] text-slate-400">obligations checked</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+              <div className="text-lg font-bold text-slate-900 dark:text-white">
+                {diff.before_passed} → {diff.after_passed}
+              </div>
+              <div className="text-[11px] text-slate-400">passing before → after</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+              <div className="text-lg font-bold text-slate-900 dark:text-white">
+                {diff.changed_count} / {diff.unchanged_count}
+              </div>
+              <div className="text-[11px] text-slate-400">flipped / unchanged</div>
+            </div>
+          </div>
+
+          {diff.changed.length > 0 ? (
+            <div className="space-y-2">
+              {diff.changed.map((c) => (
+                <div
+                  key={c.rule_id}
+                  className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-900/10"
+                >
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{c.rule_title}</span>
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    <Badge variant={c.before_verdict === "PASS" ? "pass" : "fail"}>{c.before_verdict}</Badge>
+                    <ArrowRight className="h-3 w-3 text-slate-400" />
+                    <Badge variant={c.after_verdict === "PASS" ? "pass" : "fail"}>{c.after_verdict}</Badge>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400">
+              No other obligation's verdict changed — this amendment only affects the rule above.
+            </p>
+          )}
         </CardContent>
       </Card>
     </motion.div>
