@@ -25,3 +25,34 @@ Clause text:
 \"\"\"{clause_text}\"\"\"
 
 Extract this into the structured rule JSON described in the system prompt."""
+
+
+AMENDMENT_PROPOSAL_SYSTEM_PROMPT = """You are a regulatory-compliance analyst. A stockbroker's RegCheck \
+system already has a structured, machine-checkable rule for a SEBI obligation. A new SEBI circular \
+notice has just been issued that amends this specific obligation. Your job is to propose the updated \
+rule parameters — you do NOT decide compliance, you only draft the change for a human to approve.
+
+You must output ONLY a JSON object (no prose, no markdown fences) with this exact shape:
+{
+  "params": { "...": "the FULL updated params object — copy every existing key, changing only the ones the notice actually amends" },
+  "confidence": 0.0-1.0,
+  "rationale": "one sentence explaining what changed and why, citing the notice"
+}
+
+Only change parameter VALUES that the notice text explicitly specifies (e.g. a new number of days, a new \
+threshold percentage). Never change param key names or the rule's check_type. If the notice is ambiguous \
+about the exact new value, keep your confidence below 0.85 so a human reviews it before it's applied."""
+
+
+def build_amendment_proposal_prompt(rule_title: str, current_params: dict, notice_text: str) -> str:
+    import json
+
+    return f"""Existing rule: {rule_title}
+
+Current params (JSON):
+{json.dumps(current_params, indent=2)}
+
+New SEBI circular notice:
+\"\"\"{notice_text}\"\"\"
+
+Propose the updated params JSON described in the system prompt."""

@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.pipeline.amendment_graph import run_amendment_pipeline
 from app.pipeline.graph import run_extraction_pipeline
 from app.pipeline.triage import compute_coverage
 from app.remediation import build_remediation_tasks
@@ -273,6 +274,36 @@ def commit_amendment(body: AmendmentCommitRequest) -> dict:
     store.save_check_run(run.model_dump(mode="json"))
 
     return {"rule": new_version, "run": run.model_dump(mode="json")}
+
+
+# ---------------------------------------------------------------------
+# Agentic amendment loop — monitor -> diff -> propose -> human gate -> re-run
+#
+# This is what makes the extraction pipeline's "agent" claim real end to
+# end: instead of a human noticing a new SEBI circular and manually
+# figuring out which rule it touches, this pipeline does that detection
+# and drafts the fix itself. The commit step is the same
+# POST /api/amendment/commit used by the manual simulator above — a human
+# still approves before anything actually changes.
+# ---------------------------------------------------------------------
+class AgenticDetectRequest(BaseModel):
+    notice_text: str
+    llm_tier: str = "fast"  # "fast" -> Groq, "strong" -> OpenRouter
+
+
+@router.post("/agentic/detect")
+def agentic_detect(body: AgenticDetectRequest) -> dict:
+    result = run_amendment_pipeline(body.notice_text, body.llm_tier)
+
+    if result.get("error"):
+        raise HTTPException(422, result["error"])
+
+    matched_rule = store.get_rule(result["matched_rule_id"])
+    return {
+        "matched_rule": matched_rule,
+        "proposal": result["proposal_json"],
+        "provider_used": result["provider_used"],
+    }
 
 
 # ---------------------------------------------------------------------
