@@ -1,0 +1,31 @@
+# Render "Blueprint" spec for the RegCheck backend.
+# https://render.com/docs/blueprint-spec
+#
+# Deploy: on render.com, "New" -> "Blueprint", connect this GitHub repo,
+# Render reads this file automatically. You'll be prompted to fill in the
+# `sync: false` env vars (your real API keys) in the dashboard — they are
+# never committed to the repo.
+services:
+  - type: web
+    name: regcheck-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: LLM_PROVIDER_MODE
+        value: auto
+      - key: GROQ_MODEL
+        value: llama-3.1-8b-instant
+      - key: OPENROUTER_MODEL
+        value: meta-llama/llama-3.3-70b-instruct:free
+      # Set this to your deployed frontend's exact origin after the Vercel
+      # step below (e.g. https://regcheck.vercel.app) — comma-separated if
+      # you have more than one (e.g. a preview + production URL).
+      - key: CORS_ORIGINS
+        sync: false

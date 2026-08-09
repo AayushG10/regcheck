@@ -5,6 +5,9 @@
 A hackathon submission for SEBI's *"Agentic Compliance — From Regulatory Text to
 Operational Action"* problem statement.
 
+<!-- LIVE_DEMO_URL: replace this comment with "**Live demo:** https://..." once
+     deployed per DEPLOYMENT.md — frontend on Vercel, backend on Render. -->
+
 - **Intermediary category:** Stock brokers
 - **Regulatory corpus:** SEBI's Master Circular for Stock Brokers
 - **Concrete scenario demonstrated:** 9 real obligations (running-account settlement,
