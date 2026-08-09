@@ -1,9 +1,10 @@
 # RegCheck — Architecture
 
 RegCheck turns SEBI's Master Circular for Stock Brokers into executable, auditable
-compliance checks. This document explains the full pipeline, the three-tier triage
-model, the amendment loop, and exactly which parts are LLM/LangGraph vs. deterministic
-Python.
+compliance checks — and keeps them current when SEBI amends a rule, without a human
+ever re-reading the new circular from scratch. This document explains the full
+system: two LangGraph pipelines, the three-tier triage model, the deterministic rule
+engine, the audit trail, and exactly which parts are LLM-driven vs. plain Python.
 
 ## The core design principle
 
@@ -12,167 +13,191 @@ Python.
 An LLM is excellent at reading unstructured regulatory prose and proposing a structured
 interpretation — but it is non-deterministic and unauditable as a decision-maker. A
 regulator or auditor needs the *same* answer every time, with a traceable reason. So
-RegCheck draws a hard line:
+RegCheck draws a hard line everywhere an LLM appears, in both pipelines below:
 
-- Stages 1–3 (ingest, extract, triage) may call an LLM. Output is always a **draft**
-  that a human approves.
-- Stages 4–8 (check, report, warn, remediate, amend) are **plain deterministic Python**.
-  No LLM call happens anywhere near a PASS/FAIL decision.
+- The LLM only ever **drafts** — a new rule, or an amended parameter. Output is always
+  reviewed by a human before it can run.
+- PASS/FAIL, coverage, warnings, remediation, and every persisted audit record are
+  **plain deterministic Python**. No LLM call happens anywhere near a verdict.
 
-## Pipeline diagram
+## Two LangGraph pipelines
+
+RegCheck runs two separate, small LangGraph graphs — one that turns a clause into a
+rule the first time, and one that closes the loop when SEBI *changes* a rule that
+already exists. This second graph is what makes "agentic compliance" a literal claim
+rather than "an LLM call behind a button": it watches for a regulatory change, works
+out which existing obligation it affects, and drafts the fix, before a human ever has
+to re-read the new circular themselves.
 
 ```mermaid
 flowchart TB
-    subgraph ingest_stage["① INGEST"]
-        A["SEBI Master Circular\nfor Stock Brokers\n(clause corpus)"]
+    subgraph extraction["EXTRACTION GRAPH — pipeline/graph.py"]
+        A["Circular corpus\n(clause text)"] --> B["ingest_node"]
+        B --> C["extract_node\nLLM drafts rule JSON + confidence"]
+        C --> D["triage_node\ntier + needs_review gate (<0.85)"]
     end
 
-    subgraph extract_stage["② EXTRACT — LangGraph + LLM"]
-        B["LangGraph node: ingest_node\n(load clause text)"]
-        C["LangGraph node: extract_node\nGroq (fast) or OpenRouter (strong)\n→ structured rule JSON + confidence"]
-        D["LangGraph node: triage_node\nconfidence < 0.85 → needs_review"]
+    subgraph amendment["AMENDMENT GRAPH — pipeline/amendment_graph.py"]
+        N["New SEBI circular\nnotice text"] --> O["monitor_node\ndetects the change"]
+        O --> P["diff_node — deterministic\nmatches the obligation it affects"]
+        P --> Q["propose_node\nLLM drafts amended params"]
     end
 
-    subgraph human["HUMAN APPROVAL"]
-        E{{"Human reviews rule\n(approve / edit / reject)"}}
-    end
+    D --> H{{"Human approval\n(maker ≠ checker)"}}
+    Q --> H
 
-    subgraph triage_stage["③ TRIAGE — 3 tiers"]
-        F1["🟢 Auto-checkable\n(fully deterministic)"]
-        F2["🔵 Evidence-tracked\n(data-driven, human confirms evidence)"]
-        F3["🟠 Human-judgment\n(qualitative only)"]
-        G["Coverage % = auto / total"]
-    end
+    H -->|approved| V["create_rule_version()\nv+1, effective_from/to,\napproved_by + approved_at"]
 
-    subgraph engine_stage["④ RULE ENGINE — deterministic Python"]
-        H["rules/engine.py\ndispatches by check_type"]
-        I["rules/handlers.py\nperiodicity_check · deadline_by_date\nratio_threshold · days_since_threshold\nno_further_exposure_after_days"]
-        J["Broker data\n(JSON, synthetic for demo)"]
-    end
+    V --> ENGINE["Deterministic rule engine\nrules/engine.py + handlers.py"]
+    BROKER["Broker data (JSON)"] --> ENGINE
 
-    subgraph report_stage["⑤ REPORT"]
-        K["Scorecard: PASS / FAIL\nper obligation, cites clause"]
-    end
+    ENGINE --> RUN["CheckRun persisted\nrun_id, engine_version,\nexact rule versions used"]
+    RUN --> SCORE["Scorecard\nPASS/FAIL + clause citation"]
+    SCORE --> WARN["Early warning"]
+    SCORE --> REM["Remediation tasks"]
+    RUN --> HIST["Run History\nany past run, fully reproducible"]
 
-    subgraph reactive["⑥⑦ EARLY WARNING & REMEDIATION — deterministic Python"]
-        L["warnings.py\nflags PASS rules nearing next deadline"]
-        M["remediation.py\nFAIL → owner + fix + due date"]
-    end
-
-    subgraph amend_stage["⑧ AMENDMENT LOOP — deterministic Python"]
-        N["rules/amendment.py\nclone rule with new param\nre-run engine\nbefore vs after verdict diff"]
-    end
-
-    A --> B --> C --> D --> E
-    E -->|approved| F1
-    E -->|approved| F2
-    E -->|flagged| F3
-    F1 --> G
-    F2 --> G
-    F3 --> G
-    F1 --> H
-    F2 --> H
-    H --> I --> K
-    J --> I
-    K --> L
-    K --> M
-    K -.SEBI amends a rule.-> N
-    N -->|re-run| K
-
-    style ingest_stage fill:#eff6ff,stroke:#1d4ed8
-    style extract_stage fill:#eff6ff,stroke:#1d4ed8
-    style human fill:#fef3c7,stroke:#d97706
-    style triage_stage fill:#f0fdfa,stroke:#0d9488
-    style engine_stage fill:#f0fdfa,stroke:#0d9488
-    style report_stage fill:#f0fdfa,stroke:#0d9488
-    style reactive fill:#f0fdfa,stroke:#0d9488
-    style amend_stage fill:#f0fdfa,stroke:#0d9488
+    style extraction fill:#eff6ff,stroke:#1d4ed8
+    style amendment fill:#eff6ff,stroke:#1d4ed8
+    style H fill:#fef3c7,stroke:#d97706
+    style ENGINE fill:#f0fdfa,stroke:#0d9488
+    style RUN fill:#f0fdfa,stroke:#0d9488
+    style SCORE fill:#f0fdfa,stroke:#0d9488
+    style WARN fill:#f0fdfa,stroke:#0d9488
+    style REM fill:#f0fdfa,stroke:#0d9488
+    style HIST fill:#f0fdfa,stroke:#0d9488
 ```
 
-**Legend:** blue boxes = LLM/LangGraph involved. Amber = human-in-the-loop. Teal = pure
-deterministic Python, no LLM.
+**Legend:** blue = LLM/LangGraph involved. Amber = human-in-the-loop gate. Teal = pure
+deterministic Python, no LLM, ever.
 
 ## Stage-by-stage
 
-| # | Stage | Module(s) | LLM? | Output |
-|---|-------|-----------|------|--------|
-| 1 | Ingest | `pipeline/ingest.py` | No | Clause text + title loaded from the corpus |
-| 2 | Extract | `pipeline/extract.py`, `llm/provider_router.py` | **Yes** (Groq fast / OpenRouter strong) | Structured rule JSON + confidence score |
-| 3 | Triage | `pipeline/triage.py` | No (rules on the LLM's own confidence/tier output) | Tier assignment + `needs_review` gate at confidence < 0.85 |
-| — | Human approval | `POST /api/rules/{id}/approve` | No | Rule flips to `approved` and becomes executable |
-| 4 | Rule engine | `rules/engine.py`, `rules/handlers.py` | No | `CheckResult` (PASS/FAIL/NOT_APPLICABLE) with evidence + clause citation |
-| 5 | Report | `GET /api/report` | No | Scorecard: every result, clickable to its clause |
-| 6 | Early warning | `warnings.py` | No | Obligations that PASS today but breach within 21 days |
-| 7 | Remediation | `remediation.py` | No | FAIL → owner, fix, due date |
-| 8 | Amendment loop | `rules/amendment.py` | No | Before/after verdict diff when a rule parameter changes |
+| Stage | Module(s) | LLM? | Output |
+|---|---|---|---|
+| Ingest | `pipeline/ingest.py` | No | Clause text + title loaded from the corpus |
+| Extract | `pipeline/extract.py`, `llm/provider_router.py` | **Yes** (Groq fast / OpenRouter strong) | Structured rule JSON + confidence score |
+| Triage | `pipeline/triage.py` | No | Tier assignment + `needs_review` gate at confidence < 0.85 |
+| Monitor | `pipeline/monitor.py` | No | Detects a new circular notice needs processing |
+| Diff / impact | `pipeline/diff.py` | No (deliberately) | Matches the notice to the existing obligation it amends, by clause reference |
+| Propose | `pipeline/propose.py` | **Yes** | Drafted amended parameters, with citation to the new circular |
+| Human approval | `POST /api/rules/{id}/approve`, `POST /api/amendment/commit` | No | Maker ≠ checker; rule becomes `approved` and/or a new version is created |
+| Rule engine | `rules/engine.py`, `rules/handlers.py` | No | `CheckResult` (PASS/FAIL/NOT_APPLICABLE) with evidence + clause citation |
+| Audit persistence | `storage/store.py::save_check_run` | No | Immutable `CheckRun` — see **Audit trail** below |
+| Report | `GET /api/report` | No | Live scorecard, every result clickable to its clause |
+| Early warning | `warnings.py` | No | Obligations that PASS today but breach within 21 days |
+| Remediation | `remediation.py` | No | FAIL → owner, fix, due date |
 
 ## LangGraph usage
 
-LangGraph orchestrates **only stages 1–3** (`backend/app/pipeline/graph.py`):
+**Extraction graph** (`pipeline/graph.py`): `ingest_node → extract_node → triage_node → END`.
+Turns one clause into one structured rule, once.
 
-```
-ingest_node → extract_node → triage_node → END
-```
+**Amendment graph** (`pipeline/amendment_graph.py`): `monitor_node → diff_node → propose_node → END`.
+Turns a new circular notice into a drafted amendment to an *existing* rule. The
+`diff_node` is deliberately deterministic, not an LLM call — matching a paragraph
+reference that's explicitly printed in the notice against the citations already on
+our rules is a plain string match, not something that benefits from (or should risk)
+an LLM's judgment. The LLM only re-enters at `propose_node`, drafting *what the new
+parameter should be* — same discipline as extraction.
 
-This is intentionally the smallest possible graph — a linear chain with no branching —
-because the interesting complexity in RegCheck is in the deterministic engine, not the
-LLM orchestration. LangGraph gives us a clean, inspectable state object
-(`PipelineState`) that's easy to extend (e.g. add a retry-on-low-confidence branch, or
-a multi-clause batch node) without restructuring the rest of the system.
+Both graphs are intentionally small and linear rather than heavily branched, because
+the interesting complexity in RegCheck is the deterministic engine and the audit
+trail behind it, not the graph topology. LangGraph earns its place here specifically
+because it gives each pipeline a clean, typed, inspectable state object
+(`PipelineState`, `AmendmentPipelineState`) that's straightforward to extend — e.g. a
+retry-on-low-confidence branch, or a real scheduled poller feeding `monitor_node`
+instead of the demo's manually-supplied notice text — without restructuring anything
+downstream.
 
 ## Provider routing (Groq + OpenRouter)
 
-`backend/app/llm/provider_router.py` exposes one function, `call_llm(prompt, tier)`:
+`backend/app/llm/provider_router.py` exposes one function, `call_llm(prompt, tier)`,
+used by both `extract_node` and `propose_node`:
 
-- `tier="fast"` → **Groq** (cheap, low-latency — used for the extraction draft, since
-  clause-by-clause extraction is an iterate-and-review workflow where speed matters
-  more than the strongest possible reasoning).
-- `tier="strong"` → **OpenRouter** (routes to a stronger model — used when a clause is
-  ambiguous enough to warrant it).
+- `tier="fast"` → **Groq** (cheap, low-latency — used by default, since both
+  extraction and amendment-drafting are iterate-and-review workflows where speed
+  matters more than the strongest possible reasoning).
+- `tier="strong"` → **OpenRouter** (routes to a stronger model — for a clause or
+  amendment ambiguous enough to warrant it).
 - `LLM_PROVIDER_MODE=groq|openrouter` in `.env` overrides the tier logic and forces
   everything through one provider (useful if you only have one key).
 
 Both providers speak the OpenAI-compatible chat-completions schema, so the router is a
-single `httpx` call shape with the base URL/key/model swapped.
+single `httpx` call shape with the base URL/key/model swapped. See
+`backend/scripts/eval_extraction.py` for a real (not fabricated) precision/recall
+measurement of the extraction stage against hand-labeled clauses — results in
+`backend/data/eval_results.json`.
 
 ## The three triage tiers
 
 1. **Auto-checkable** — the obligation reduces to a deterministic comparison against
    broker data (a date, a ratio, a periodicity). The engine runs it with zero human
-   involvement per run (a human approved the rule once, at extraction time).
+   involvement per run (a human approved the rule once, at extraction/amendment time).
 2. **Evidence-tracked** — the check itself is data-driven (e.g. "was the certificate
    filed within 60 days?"), but the *evidence* needs a human to confirm it's genuine
-   (e.g. is this actually a valid CA-signed certificate, not a forged PDF?). RegCheck
-   runs the deterministic date check and flags the result for human evidence
-   confirmation.
+   (e.g. is this actually a valid CA-signed certificate, not a forged PDF?).
 3. **Human judgment** — no data check is possible. The obligation is qualitative (e.g.
    "is the grievance redressal mechanism adequate?"). RegCheck surfaces these
    obligations explicitly rather than pretending to automate them — this is what makes
    the coverage % honest.
 
-**Coverage % = auto-checkable obligations ÷ total obligations.**
+**Coverage % = auto-checkable obligations ÷ total obligations**, computed live from
+whatever rules currently exist (`pipeline/triage.py::compute_coverage`), not hardcoded.
 
-## The amendment loop
+## Audit trail & rule versioning
 
-When SEBI tightens a rule (e.g. VAPT periodicity 6 months → 3 months), nothing needs to
-go back through the LLM. `rules/amendment.py`:
+SEBI's brief names *"maintaining audit trails"* as a core ongoing-compliance
+challenge. RegCheck answers it structurally, not just with a report page:
 
-1. Takes the existing, human-approved `Rule` object.
-2. Clones it with the new parameter (`periodicity_days: 182 → 91`).
-3. Re-runs `rules/engine.py` on the **same broker data**, twice (before/after).
-4. Returns both verdicts and whether the verdict flipped.
+- **Rules are versioned, never mutated.** `Rule.version`, `effective_from`,
+  `effective_to`, and `supersedes` (see `storage/models.py`). Amending a rule — via
+  the manual Amendment Simulator or the agentic amendment loop — calls
+  `store.create_rule_version()`, which closes out the old version's `effective_to`,
+  archives it to `rules.history.json`, and activates a new version in
+  `rules.live.json`. A run persisted *before* an amendment stays judged against the
+  rule version that was actually in force at the time — permanently.
+- **Every scorecard run is an immutable `CheckRun`.** `run_id`, `run_at`,
+  `engine_version`, and the full `CheckResult` list (including which `rule_version`
+  produced each verdict) are persisted via `store.save_check_run()`. `GET /api/runs`
+  and `GET /api/runs/{run_id}` (surfaced in the dashboard's Run History view) answer
+  the question a live-recomputed report never could: *"what did we report on 31
+  March, and prove it."*
+- **Approval has provenance.** `approved_by` + `approved_at` on every rule, with a
+  maker ≠ checker constraint — the person who drafts an extraction or amendment
+  cannot be the same person who approves it, matching standard practice in Indian
+  financial-services governance.
 
-This is why the periodicity-based rules in the seed data are deliberately tuned so the
-VAPT check is a **narrow PASS** (167 days elapsed against a 182-day limit) — tightening
-the limit to 91 days flips it straight to FAIL, which is the live demo of "regulatory
-change → operational impact" in under a second, with full auditability (the same
-clause citation and the same deterministic handler, just a different threshold).
+This is also the honest foundation for the Neo4j-backed obligation-supersession graph
+described under **Storage** below — `supersedes` already encodes the edge; Neo4j would
+only change how it's queried, not whether it exists.
+
+## The agentic amendment loop, end to end
+
+1. A new SEBI circular notice arrives (`POST /api/agentic/detect` — demo-triggered
+   with a prepared notice; a production deployment would feed this from a scheduled
+   poll of SEBI's circular index).
+2. `diff_node` matches it, deterministically, to the existing obligation it amends.
+3. `propose_node` has the LLM draft the new parameter value, citing the notice.
+4. A human reviews the proposal and calls `POST /api/amendment/commit` to approve it.
+5. `create_rule_version()` fires: the old rule version closes, a new one activates.
+6. The full scorecard re-runs against the new version and is persisted as a fresh
+   `CheckRun` — so the dashboard shows exactly which verdicts flipped, with the same
+   clause citation, no manual re-reading of the circular required anywhere in the loop.
+
+The seed data's VAPT rule (para 18.5.5.8-9) is deliberately tuned as a **narrow PASS**
+(167 days elapsed against a 182-day limit) specifically so tightening it — via either
+the manual Amendment Simulator or a simulated real circular through the agentic loop —
+flips it straight to FAIL, demonstrating "regulatory change → operational impact" in
+under a second, with full auditability at every step.
 
 ## Storage
 
-Everything is flat JSON under `backend/data/`, accessed through `storage/store.py` — a
-thin repository interface. This keeps the demo dependency-free (no DB to provision) while
-keeping a clean seam: swapping in SQLite is a change to `store.py` only, and the same
-seam is where a Neo4j-backed obligation-supersession graph (rule v2 *supersedes* rule
-v1, with a queryable history of amendments) would plug in for a production version —
-none of the engine, pipeline, or API code would need to change.
+Everything is flat JSON under `backend/data/` (`rules.live.json`, `rules.history.json`,
+`check_runs.json`, plus the seed corpus and broker profile), accessed through
+`storage/store.py` — a thin repository interface. This keeps the demo dependency-free
+(no DB to provision) while keeping a clean seam: swapping in SQLite is a change to
+`store.py` only. The same seam is where a Neo4j-backed obligation-supersession graph
+would plug in for a production version — `Rule.supersedes` already models the edge
+this repo's JSON files would need to migrate; none of the engine, pipeline, or API code
+would need to change.
