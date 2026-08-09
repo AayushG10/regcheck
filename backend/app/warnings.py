@@ -93,9 +93,23 @@ def scan_for_warnings(
         elif "due_date" in evidence:
             next_due = _parse(evidence["due_date"])
         elif "max_days" in evidence and "reference_date" in evidence:
-            # e.g. monthly upload: next occurrence is a month after the current reference
+            # days_since_threshold: e.g. monthly upload (next occurrence is
+            # a month after the current reference) or the annual net-worth
+            # certificate (next occurrence is a year after). This check_type
+            # is shared by rules with different real-world cadences, so the
+            # gap to the *next* reference date is read from the rule's own
+            # `cadence_days` param rather than a single hardcoded assumption
+            # — a monthly-only assumption here would put an annual rule's
+            # next-due date off by roughly 11 months.
+            rule = rules_by_id.get(r.rule_id)
+            cadence_days = rule.params.get("cadence_days") if rule else None
+            if cadence_days is None:
+                # No cadence declared on the rule (e.g. an older/hand-edited
+                # draft) — fall back to the previous monthly assumption
+                # rather than silently dropping the warning.
+                cadence_days = 30
             reference = _parse(evidence["reference_date"])
-            next_due = reference + timedelta(days=30 + evidence["max_days"])
+            next_due = reference + timedelta(days=cadence_days + evidence["max_days"])
 
         if next_due is None:
             continue

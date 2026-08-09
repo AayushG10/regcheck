@@ -169,11 +169,13 @@ export interface ExtractionResponse {
     params: Record<string, unknown>;
     confidence: number;
     tier: Tier;
+    schema_warning?: string | null;
   };
   final_tier: Tier;
   final_status: RuleStatus;
   provider_used: string;
   raw_llm_output: string;
+  schema_warning?: string | null;
 }
 
 class ApiError extends Error {

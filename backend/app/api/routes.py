@@ -15,6 +15,7 @@ from app.pipeline.triage import compute_coverage
 from app.remediation import build_remediation_tasks
 from app.rules.amendment import simulate_amendment
 from app.rules.engine import run_all_rules
+from app.rules.validation import unresolved_dot_paths
 from app.storage.models import CheckRun
 from app.storage.models import Rule
 from app.storage.models import RuleStatus
@@ -132,6 +133,25 @@ def extract_rule(body: ExtractRequest) -> dict:
 
     extraction = result["extraction_json"]
 
+    # Prevention at the source: check whether the drafted params' dot-path
+    # field names actually resolve against the real broker-data schema
+    # before a human is asked to approve them. This can't block approval
+    # outright (a human might have a legitimate reason, and the crash-proof
+    # guard in rules/engine.py::run_rule means an approved bad draft still
+    # can't take the app down) — but the reviewer must see it, and the
+    # draft's confidence must not overstate how trustworthy it is.
+    broker = store.get_broker_profile()
+    bad_fields = unresolved_dot_paths(extraction.get("check_type"), extraction.get("params", {}), broker)
+    schema_warning: str | None = None
+    if bad_fields:
+        schema_warning = (
+            f"Drafted field path(s) not found in broker data: {', '.join(bad_fields)}. "
+            "This draft's params may be misconfigured — verify against the broker data "
+            "schema before approving."
+        )
+        extraction["confidence"] = min(float(extraction.get("confidence", 0.0)), 0.3)
+    extraction["schema_warning"] = schema_warning
+
     existing = next((r for r in store.get_rules() if r["clause_id"] == body.clause_id), None)
     persisted_rule_id: str | None = None
     if existing is not None:
@@ -161,6 +181,7 @@ def extract_rule(body: ExtractRequest) -> dict:
         "provider_used": result["provider_used"],
         "raw_llm_output": result["extraction_raw"],
         "persisted_rule_id": persisted_rule_id,
+        "schema_warning": schema_warning,
     }
 
 

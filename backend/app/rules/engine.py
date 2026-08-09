@@ -54,7 +54,38 @@ def run_rule(rule: Rule, broker: dict[str, Any]) -> CheckResult:
     if handler is None:
         raise ValueError(f"No handler registered for check_type '{rule.check_type}'")
 
-    verdict, evidence, explanation = handler(rule.params, broker)
+    try:
+        verdict, evidence, explanation = handler(rule.params, broker)
+    except KeyError as exc:
+        # A handler's dot-path field lookup (see handlers.py::_get) failed —
+        # almost always because an approved rule's `params` reference a
+        # field name that doesn't exist in the real broker-data schema
+        # (e.g. a bad LLM-drafted extraction that got approved anyway).
+        # This must not crash the caller: /api/report, /api/checks/run,
+        # /api/warnings, and /api/remediation all depend on run_all_rules
+        # completing for every other rule, so one misconfigured rule
+        # degrades to a single FAIL with a clear explanation instead of
+        # taking the whole dashboard down with an unhandled 500.
+        # exc.args[0] is the plain message _get raised with — str(exc)
+        # would re-wrap it in quotes via KeyError's repr-based __str__.
+        message = exc.args[0] if exc.args else str(exc)
+        return CheckResult(
+            rule_id=rule.id,
+            rule_title=rule.title,
+            rule_version=rule.version,
+            clause_id=rule.clause_id,
+            citation=rule.citation,
+            category=rule.category,
+            tier=rule.tier,
+            verdict=Verdict.FAIL,
+            evidence={"error": message},
+            explanation=(
+                f"{message} — this rule's params may be misconfigured (a drafted field "
+                "name that doesn't match the broker data schema). Re-extract or manually "
+                "fix this rule's params, then re-approve."
+            ),
+        )
+
     return CheckResult(
         rule_id=rule.id,
         rule_title=rule.title,

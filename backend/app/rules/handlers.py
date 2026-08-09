@@ -29,6 +29,18 @@ def _get(data: dict[str, Any], dot_path: str) -> Any:
     return node
 
 
+def field_exists(data: dict[str, Any], dot_path: str) -> bool:
+    """Public, non-raising check for whether a dot-path resolves against a
+    broker data blob — used by the extraction-time validation in
+    rules/validation.py so a drafted rule's params can be sanity-checked
+    against the real schema before a human is asked to approve it."""
+    try:
+        _get(data, dot_path)
+        return True
+    except KeyError:
+        return False
+
+
 def _get_optional(data: dict[str, Any], dot_path: str) -> Any:
     """Like `_get`, but returns None instead of raising when the field is
     absent or explicitly null — used for fields that are only present when
