@@ -56,7 +56,6 @@
     "client": "K. Bansal",
     "amount_inr": 920000,
     "cleared": false,
-    "further_exposure_given_after_day5": true,
     "further_exposure_amount_inr": 250000,
     "further_exposure_date": "2026-06-29"
   },

@@ -255,7 +255,7 @@
     "params": {
       "debit_arose_date_field": "debit_balance.debit_arose_date",
       "cleared_field": "debit_balance.cleared",
-      "further_exposure_given_field": "debit_balance.further_exposure_given_after_day5",
+      "further_exposure_date_field": "debit_balance.further_exposure_date",
       "trading_days_threshold": 5
     },
     "confidence": 0.91,

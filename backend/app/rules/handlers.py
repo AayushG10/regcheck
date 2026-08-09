@@ -14,7 +14,7 @@ field.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Callable
 
 from app.storage.models import Verdict
@@ -25,6 +25,19 @@ def _get(data: dict[str, Any], dot_path: str) -> Any:
     for part in dot_path.split("."):
         if not isinstance(node, dict) or part not in node:
             raise KeyError(f"Field '{dot_path}' not found in broker data (missing '{part}')")
+        node = node[part]
+    return node
+
+
+def _get_optional(data: dict[str, Any], dot_path: str) -> Any:
+    """Like `_get`, but returns None instead of raising when the field is
+    absent or explicitly null — used for fields that are only present when
+    an event actually happened (e.g. a further-exposure date that only
+    exists if further exposure was in fact given)."""
+    node: Any = data
+    for part in dot_path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
         node = node[part]
     return node
 
@@ -154,23 +167,36 @@ def days_since_threshold(params: dict[str, Any], broker: dict[str, Any]) -> tupl
 def no_further_exposure_after_days(params: dict[str, Any], broker: dict[str, Any]) -> tuple[Verdict, dict, str]:
     debit_arose = _parse_date(_get(broker, params["debit_arose_date_field"]))
     cleared = _get(broker, params["cleared_field"])
-    further_exposure_given = _get(broker, params["further_exposure_given_field"])
     threshold = params["trading_days_threshold"]
-    today = _as_of(broker)
-    days_open = (today - debit_arose).days
+    deadline = debit_arose + timedelta(days=threshold)
 
-    breach = (not cleared) and (days_open > threshold) and bool(further_exposure_given)
+    # Whether further exposure was given at all — and when — is derived
+    # from the actual exposure date on file, not from a separately
+    # pre-labeled boolean (which could drift out of sync with the real
+    # date, or simply be wrong). No exposure date on record means no
+    # further exposure was given.
+    further_exposure_date_raw = _get_optional(broker, params["further_exposure_date_field"])
+    further_exposure_given = further_exposure_date_raw is not None
+    further_exposure_date = _parse_date(further_exposure_date_raw) if further_exposure_given else None
+
+    breach = (
+        (not cleared)
+        and further_exposure_given
+        and further_exposure_date > deadline
+    )
     verdict = Verdict.FAIL if breach else Verdict.PASS
     evidence = {
         "debit_arose_date": str(debit_arose),
-        "days_open": days_open,
         "trading_days_threshold": threshold,
+        "deadline_date": str(deadline),
         "cleared": cleared,
         "further_exposure_given": further_exposure_given,
+        "further_exposure_date": str(further_exposure_date) if further_exposure_date else None,
     }
     explanation = (
-        f"Debit balance open since {debit_arose} ({days_open} days, threshold {threshold}); "
-        f"further exposure given: {further_exposure_given}; cleared: {cleared}."
+        f"Debit balance open since {debit_arose}; further exposure "
+        f"{'given on ' + str(further_exposure_date) if further_exposure_given else 'not given'} "
+        f"against a deadline of {deadline} ({threshold} trading days after the debit arose); cleared: {cleared}."
     )
     return verdict, evidence, explanation
 

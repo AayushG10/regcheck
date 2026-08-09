@@ -166,36 +166,49 @@ def test_days_since_threshold_fails_when_event_precedes_reference():
 EXPOSURE_PARAMS = {
     "debit_arose_date_field": "arose",
     "cleared_field": "cleared",
-    "further_exposure_given_field": "exposure_given",
+    "further_exposure_date_field": "exposure_date",
     "trading_days_threshold": 5,
 }
 
 
 def test_no_further_exposure_pass_at_exact_threshold_boundary():
-    # days_open == threshold (not strictly greater) -> not yet a breach
-    broker = {"as_of_date": "2026-01-06", "arose": "2026-01-01", "cleared": False, "exposure_given": True}
+    # exposure given exactly on the deadline (arose + threshold), not
+    # strictly after it -> not yet a breach
+    broker = {"arose": "2026-01-01", "cleared": False, "exposure_date": "2026-01-06"}
     verdict, evidence, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
-    assert evidence["days_open"] == 5
+    assert evidence["deadline_date"] == "2026-01-06"
     assert verdict == Verdict.PASS
 
 
 def test_no_further_exposure_fails_one_day_past_threshold_when_exposed_and_uncleared():
-    broker = {"as_of_date": "2026-01-07", "arose": "2026-01-01", "cleared": False, "exposure_given": True}
+    broker = {"arose": "2026-01-01", "cleared": False, "exposure_date": "2026-01-07"}
     verdict, evidence, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
-    assert evidence["days_open"] == 6
+    assert evidence["deadline_date"] == "2026-01-06"
     assert verdict == Verdict.FAIL
 
 
 def test_no_further_exposure_pass_when_balance_cleared_despite_overdue():
-    broker = {"as_of_date": "2026-01-10", "arose": "2026-01-01", "cleared": True, "exposure_given": True}
+    broker = {"arose": "2026-01-01", "cleared": True, "exposure_date": "2026-01-10"}
     verdict, _, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
     assert verdict == Verdict.PASS
 
 
 def test_no_further_exposure_pass_when_no_further_exposure_was_given():
-    broker = {"as_of_date": "2026-01-10", "arose": "2026-01-01", "cleared": False, "exposure_given": False}
-    verdict, _, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
+    # No exposure_date field on record at all -> no further exposure given
+    broker = {"arose": "2026-01-01", "cleared": False}
+    verdict, evidence, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
+    assert evidence["further_exposure_given"] is False
     assert verdict == Verdict.PASS
+
+
+def test_no_further_exposure_computes_from_real_exposure_date_not_a_boolean_label():
+    # Regression: the handler must derive breach status from the actual
+    # further_exposure_date field, not trust a separately pre-labeled
+    # boolean that could disagree with it.
+    broker = {"arose": "2026-06-20", "cleared": False, "exposure_date": "2026-06-29"}
+    verdict, evidence, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
+    assert evidence["deadline_date"] == "2026-06-25"
+    assert verdict == Verdict.FAIL
 
 
 if __name__ == "__main__":

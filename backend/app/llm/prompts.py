@@ -43,7 +43,7 @@ Definitions — read these carefully, two of them are easy to conflate:
   params: {"numerator_field", "denominator_field", "operator", "threshold"}.
 - no_further_exposure_after_days: a specific prohibition kicks in once N days have
   elapsed since a triggering event, rather than a filing deadline.
-  params: {"debit_arose_date_field", "cleared_field", "further_exposure_given_field", "trading_days_threshold"}.
+  params: {"debit_arose_date_field", "cleared_field", "further_exposure_date_field", "trading_days_threshold"}.
 
 Worked example of the deadline_by_date vs days_since_threshold distinction:
 - "Internal audit report... shall be submitted by November 30" -> deadline_by_date
