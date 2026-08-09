@@ -1,10 +1,24 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Landing from "@/pages/Landing";
-import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/NotFound";
+
+// Landing and Dashboard are the two top-level route bundles, and a visitor
+// only ever needs one of them on first load — code-splitting here (plus the
+// per-view splitting inside Dashboard.tsx) is what keeps the initial JS
+// payload down instead of shipping recharts/framer-motion for every route
+// whether or not that page is ever visited.
+const Landing = lazy(() => import("@/pages/Landing"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-white dark:bg-slate-950">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600 dark:border-slate-800" />
+    </div>
+  );
+}
 
 function PageTransition({ children }: { children: ReactNode }) {
   return (
@@ -28,13 +42,15 @@ function App() {
 
   return (
     <TooltipProvider delayDuration={150}>
-      <AnimatePresence mode="wait" initial={false}>
-        <Routes location={location} key={transitionKey}>
-          <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
-          <Route path="/dashboard/*" element={<Dashboard />} />
-          <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
-        </Routes>
-      </AnimatePresence>
+      <Suspense fallback={<RouteFallback />}>
+        <AnimatePresence mode="wait" initial={false}>
+          <Routes location={location} key={transitionKey}>
+            <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
+            <Route path="/dashboard/*" element={<Dashboard />} />
+            <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
+          </Routes>
+        </AnimatePresence>
+      </Suspense>
     </TooltipProvider>
   );
 }

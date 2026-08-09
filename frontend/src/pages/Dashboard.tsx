@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { NavLink, Route, Routes, Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -20,16 +20,32 @@ import {
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { api, ApiError } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import TopBar from "@/components/dashboard/TopBar";
-import Scorecard from "@/components/dashboard/Scorecard";
-import CoverageMap from "@/components/dashboard/CoverageMap";
-import RulesExplorer from "@/components/dashboard/RulesExplorer";
-import AmendmentSimulator from "@/components/dashboard/AmendmentSimulator";
-import EarlyWarningCalendar from "@/components/dashboard/EarlyWarningCalendar";
-import RemediationList from "@/components/dashboard/RemediationList";
-import RunHistory from "@/components/dashboard/RunHistory";
-import CircularMonitor from "@/components/dashboard/CircularMonitor";
+
+// Each dashboard view is its own chunk — recharts (Scorecard, CoverageMap) and
+// the rest of framer-motion-heavy views only load once a judge actually
+// clicks into that tab, instead of all eight shipping in the initial bundle.
+const Scorecard = lazy(() => import("@/components/dashboard/Scorecard"));
+const CoverageMap = lazy(() => import("@/components/dashboard/CoverageMap"));
+const RulesExplorer = lazy(() => import("@/components/dashboard/RulesExplorer"));
+const AmendmentSimulator = lazy(() => import("@/components/dashboard/AmendmentSimulator"));
+const EarlyWarningCalendar = lazy(() => import("@/components/dashboard/EarlyWarningCalendar"));
+const RemediationList = lazy(() => import("@/components/dashboard/RemediationList"));
+const RunHistory = lazy(() => import("@/components/dashboard/RunHistory"));
+const CircularMonitor = lazy(() => import("@/components/dashboard/CircularMonitor"));
+
+function ViewFallback() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-56" />
+      <Skeleton className="h-20" />
+      <Skeleton className="h-20" />
+    </div>
+  );
+}
 
 const NAV_GROUPS = [
   {
@@ -177,16 +193,18 @@ export default function Dashboard() {
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div className="mx-auto max-w-[1400px]">
-            <Routes>
-              <Route index element={<Scorecard />} />
-              <Route path="coverage" element={<CoverageMap />} />
-              <Route path="rules" element={<RulesExplorer />} />
-              <Route path="monitor" element={<CircularMonitor />} />
-              <Route path="amendment" element={<AmendmentSimulator />} />
-              <Route path="warnings" element={<EarlyWarningCalendar />} />
-              <Route path="remediation" element={<RemediationList />} />
-              <Route path="runs" element={<RunHistory />} />
-            </Routes>
+            <Suspense fallback={<ViewFallback />}>
+              <Routes>
+                <Route index element={<Scorecard />} />
+                <Route path="coverage" element={<CoverageMap />} />
+                <Route path="rules" element={<RulesExplorer />} />
+                <Route path="monitor" element={<CircularMonitor />} />
+                <Route path="amendment" element={<AmendmentSimulator />} />
+                <Route path="warnings" element={<EarlyWarningCalendar />} />
+                <Route path="remediation" element={<RemediationList />} />
+                <Route path="runs" element={<RunHistory />} />
+              </Routes>
+            </Suspense>
           </div>
         </main>
       </div>
