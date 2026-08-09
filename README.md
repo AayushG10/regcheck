@@ -207,9 +207,12 @@ A real pilot would connect to:
 - SEBI's **Innovation Sandbox**, using anonymized test data.
 
 The synthetic broker ("Zenith Capital Securities Pvt. Ltd.") is deliberately seeded so
-**4 rules PASS and 5 FAIL**, and so the VAPT rule is a **narrow PASS** (last VAPT 167
-days ago against a 182-day limit) — tightening that limit to 91 days (3 months) flips
-it to FAIL live in the Amendment Simulator.
+**4 rules PASS and 4 FAIL** among the 8 approved, auto/evidence-tier rules that actually
+execute (a 9th rule — the net-worth certificate check — sits in `needs_review` and is
+excluded from the scorecard until a human approves it in Rules Explorer; a 10th,
+judgment-tier rule has no deterministic check at all). The VAPT rule is a **narrow
+PASS** (last VAPT 167 days ago against a 182-day limit) — tightening that limit to 91
+days (3 months) flips it to FAIL live in the Amendment Simulator.
 
 ---
 
@@ -322,14 +325,19 @@ rather than assuming a prompt edit helped.
 
 1. **Landing page** (`/`) — the pitch: pipeline flow, features, "chatbot vs RegCheck"
    comparison, ROI stats.
-2. **Scorecard** (`/dashboard`) — 9 obligations, 4 PASS / 5 FAIL. Expand a row (e.g.
-   "Net Worth ≥ 75%") to see the computed evidence (72% vs 75% required) and click
-   **"Para 15.8.1.1"** to see the exact source clause text in a dialog.
+2. **Scorecard** (`/dashboard`) — 8 obligations checked, 4 PASS / 4 FAIL (only
+   `approved` rules are executed; a 9th rule sitting in `needs_review` is deliberately
+   excluded — see step 4). Expand a row (e.g. "Net Worth ≥ 75%") to see the computed
+   evidence (72% vs 75% required) and click **"Para 15.8.1.1"** to see the exact source
+   clause text in a dialog.
 3. **Coverage Map** — 70% of obligations are fully auto-checkable; the donut breaks down
    auto / evidence / judgment tiers honestly.
 4. **Rules Explorer** — every rule's confidence score and citation. Point out the
-   evidence-tier rule sitting at 0.82 confidence (`needs_review`) — this is the
-   human-approval gate in action.
+   evidence-tier rule sitting at 0.82 confidence (`needs_review`) — it is excluded from
+   the scorecard above until a human clicks **Approve**; approving it live moves the
+   scorecard from 8 checked / 4 PASS / 4 FAIL to 9 checked / 4 PASS / 5 FAIL (the
+   certificate check itself evaluates to FAIL), which is the human-approval gate
+   actually doing something, not just a status label.
 5. **Amendment Simulator** (the centerpiece) — select "QSB VAPT Half-Yearly," drag the
    periodicity slider from 182 days down toward 91 days, click **Simulate amendment**.
    Watch PASS flip to FAIL live, with the same clause citation and a before/after
@@ -340,7 +348,7 @@ rather than assuming a prompt edit helped.
 6. **Early-Warning Calendar** — the VAPT check is currently a PASS with only 15 days of
    headroom before its next deadline; this is exactly what a compliance officer would
    want flagged before it becomes a FAIL.
-7. **Remediation** — the 5 FAILs, each with an owner, a concrete fix, and a due date.
+7. **Remediation** — the 4 FAILs, each with an owner, a concrete fix, and a due date.
 
 ---
 

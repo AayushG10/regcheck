@@ -172,19 +172,34 @@ EXPOSURE_PARAMS = {
 
 
 def test_no_further_exposure_pass_at_exact_threshold_boundary():
-    # exposure given exactly on the deadline (arose + threshold), not
-    # strictly after it -> not yet a breach
-    broker = {"arose": "2026-01-01", "cleared": False, "exposure_date": "2026-01-06"}
+    # exposure given exactly on the deadline (arose + 5 *trading* days), not
+    # strictly after it -> not yet a breach. 2026-01-01 is a Thursday, so
+    # the 5th trading day (skipping the Jan 3-4 weekend) is 2026-01-08.
+    broker = {"arose": "2026-01-01", "cleared": False, "exposure_date": "2026-01-08"}
     verdict, evidence, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
-    assert evidence["deadline_date"] == "2026-01-06"
+    assert evidence["deadline_date"] == "2026-01-08"
     assert verdict == Verdict.PASS
 
 
 def test_no_further_exposure_fails_one_day_past_threshold_when_exposed_and_uncleared():
-    broker = {"arose": "2026-01-01", "cleared": False, "exposure_date": "2026-01-07"}
+    broker = {"arose": "2026-01-01", "cleared": False, "exposure_date": "2026-01-09"}
     verdict, evidence, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
-    assert evidence["deadline_date"] == "2026-01-06"
+    assert evidence["deadline_date"] == "2026-01-08"
     assert verdict == Verdict.FAIL
+
+
+def test_no_further_exposure_deadline_skips_weekend_not_calendar_days():
+    # Regression: "5 trading days" must skip weekends, not just add 5
+    # calendar days. Debit arises Friday 2026-01-02; naive calendar math
+    # would land the deadline on Wednesday 2026-01-07, but the real 5th
+    # trading day (Mon-Fri only, skipping the Jan 3-4 weekend) is
+    # Friday 2026-01-09.
+    broker = {"arose": "2026-01-02", "cleared": False, "exposure_date": "2026-01-09"}
+    verdict, evidence, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
+    assert evidence["deadline_date"] == "2026-01-09"
+    # exposure given exactly on the (correct) trading-day deadline -> PASS,
+    # even though it's 7 calendar days after the debit arose.
+    assert verdict == Verdict.PASS
 
 
 def test_no_further_exposure_pass_when_balance_cleared_despite_overdue():
@@ -205,9 +220,11 @@ def test_no_further_exposure_computes_from_real_exposure_date_not_a_boolean_labe
     # Regression: the handler must derive breach status from the actual
     # further_exposure_date field, not trust a separately pre-labeled
     # boolean that could disagree with it.
+    # 2026-06-20 is a Saturday; the 5th trading day after it (Mon-Fri,
+    # skipping the following weekend too) is 2026-06-26.
     broker = {"arose": "2026-06-20", "cleared": False, "exposure_date": "2026-06-29"}
     verdict, evidence, _ = no_further_exposure_after_days(EXPOSURE_PARAMS, broker)
-    assert evidence["deadline_date"] == "2026-06-25"
+    assert evidence["deadline_date"] == "2026-06-26"
     assert verdict == Verdict.FAIL
 
 

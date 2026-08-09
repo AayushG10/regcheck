@@ -51,6 +51,24 @@ def _as_of(broker: dict[str, Any]) -> date:
     return _parse_date(broker["as_of_date"])
 
 
+def _add_trading_days(start: date, n: int) -> date:
+    """Adds `n` trading days (Mon-Fri) to `start`, skipping weekends.
+
+    This is intentionally simple — a plain weekday count with no market
+    holiday calendar. That's the right amount of rigor for this demo: SEBI
+    circular language like "5 trading days" (para 15.4.4.4) means weekdays,
+    not calendar days, and a full NSE holiday calendar would be
+    over-engineering for what this handler needs to demonstrate.
+    """
+    d = start
+    added = 0
+    while added < n:
+        d += timedelta(days=1)
+        if d.weekday() < 5:  # Mon=0 .. Fri=4
+            added += 1
+    return d
+
+
 # ---------------------------------------------------------------------
 # check_type: periodicity_check
 # "has event X happened at least once every N days?"
@@ -168,7 +186,7 @@ def no_further_exposure_after_days(params: dict[str, Any], broker: dict[str, Any
     debit_arose = _parse_date(_get(broker, params["debit_arose_date_field"]))
     cleared = _get(broker, params["cleared_field"])
     threshold = params["trading_days_threshold"]
-    deadline = debit_arose + timedelta(days=threshold)
+    deadline = _add_trading_days(debit_arose, threshold)
 
     # Whether further exposure was given at all — and when — is derived
     # from the actual exposure date on file, not from a separately

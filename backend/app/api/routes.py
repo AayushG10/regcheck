@@ -232,7 +232,8 @@ def get_warnings() -> list[dict]:
     rules = _load_rules()
     broker = store.get_broker_profile()
     results = run_all_rules(rules, broker)
-    warnings = scan_for_warnings(results, _as_of_date())
+    rules_by_id = {r.id: r for r in rules}
+    warnings = scan_for_warnings(results, _as_of_date(), rules_by_id)
     return [w.model_dump() for w in warnings]
 
 

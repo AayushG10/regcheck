@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.rules.handlers import HANDLERS
-from app.storage.models import CheckResult, ClauseCitation, Rule, Tier, Verdict
+from app.storage.models import CheckResult, ClauseCitation, Rule, RuleStatus, Tier, Verdict
 
 
 def run_rule(rule: Rule, broker: dict[str, Any]) -> CheckResult:
@@ -58,6 +58,8 @@ def run_all_rules(rules: list[Rule], broker: dict[str, Any]) -> list[CheckResult
     results = []
     for rule in rules:
         if rule.tier == Tier.JUDGMENT:
+            continue
+        if rule.status != RuleStatus.APPROVED:
             continue
         results.append(run_rule(rule, broker))
     return results
