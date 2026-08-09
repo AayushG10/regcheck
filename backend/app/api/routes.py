@@ -139,10 +139,39 @@ def extract_rule(body: ExtractRequest) -> dict:
 # ---------------------------------------------------------------------
 @router.get("/report")
 def get_report() -> dict:
-    """Live recompute of the current scorecard. Not persisted — for that,
-    use POST /api/checks/run, which snapshots a CheckRun into the audit
-    trail. This endpoint is what the dashboard polls on every view."""
-    return _run_scorecard()
+    """Live recompute of the current scorecard — this is what the dashboard
+    (Scorecard, Warnings, Remediation) polls on every view, including a user
+    who never touches Run History or clicks "Run now".
+
+    Also persists a CheckRun into the audit trail, so simply viewing the
+    dashboard leaves a record. De-duplicated by as_of_date: since the
+    scorecard is recomputed live off the same broker snapshot on every poll,
+    we only persist once per as_of_date (i.e. once per distinct underlying
+    state) rather than spamming a new run on every page load/refresh — use
+    POST /api/checks/run to force an explicit, always-persisted run."""
+    scorecard = _run_scorecard()
+    _persist_run_if_new_as_of_date(scorecard)
+    return scorecard
+
+
+def _persist_run_if_new_as_of_date(scorecard: dict) -> None:
+    existing_runs = store.get_check_runs()  # newest first
+    most_recent = existing_runs[0] if existing_runs else None
+    if most_recent is not None and most_recent["as_of_date"] == scorecard["as_of_date"]:
+        return
+
+    run = CheckRun(
+        run_id=str(uuid.uuid4()),
+        run_at=datetime.now(),
+        as_of_date=scorecard["as_of_date"],
+        engine_version=ENGINE_VERSION,
+        broker_name=scorecard["broker_name"],
+        total_checked=scorecard["total_checked"],
+        passed=scorecard["passed"],
+        failed=scorecard["failed"],
+        results=scorecard["results"],
+    )
+    store.save_check_run(run.model_dump(mode="json"))
 
 
 @router.post("/checks/run")
