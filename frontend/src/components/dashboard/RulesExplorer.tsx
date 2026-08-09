@@ -43,9 +43,10 @@ export default function RulesExplorer() {
     setExtracting(rule.id);
     try {
       const result = await api.extractRule(rule.clause_id, "fast");
-      toast.success(`Re-extracted "${result.extraction.title}"`, {
-        description: `Confidence ${result.extraction.confidence.toFixed(2)} · ${result.provider_used}`,
+      toast.success("New draft ready for review", {
+        description: `"${result.extraction.title}" · confidence ${result.extraction.confidence.toFixed(2)} · ${result.provider_used} — approve it below to apply the new params.`,
       });
+      refetch();
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Extraction failed";
       toast.error("LLM extraction unavailable", { description: message });

@@ -61,7 +61,12 @@ export default function CircularMonitor() {
     if (!result) return;
     setApproving(true);
     try {
-      const res = await api.commitAmendment(result.matched_rule.id, result.proposal.params, "Rohan Mehta, CFO");
+      const res = await api.commitAmendment(
+        result.matched_rule.id,
+        result.proposal.params,
+        "Rohan Mehta, CFO",
+        "Agentic amendment loop"
+      );
       setApproved(true);
       toast.success(`Amendment approved — rule now at v${res.rule.version}`, {
         description: `New run recorded: ${res.run.passed} passed, ${res.run.failed} failed. See Run History for the full audit trail.`,

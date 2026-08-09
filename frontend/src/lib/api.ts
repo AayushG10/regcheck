@@ -219,10 +219,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ rule_id, param_overrides }),
     }),
-  commitAmendment: (rule_id: string, param_overrides: Record<string, unknown>, approved_by?: string) =>
+  commitAmendment: (rule_id: string, param_overrides: Record<string, unknown>, approved_by?: string, source?: string) =>
     request<AmendmentCommitResult>("/api/amendment/commit", {
       method: "POST",
-      body: JSON.stringify({ rule_id, param_overrides, ...(approved_by ? { approved_by } : {}) }),
+      body: JSON.stringify({
+        rule_id,
+        param_overrides,
+        ...(approved_by ? { approved_by } : {}),
+        ...(source ? { source } : {}),
+      }),
     }),
   getBroker: () => request<Record<string, unknown>>("/api/broker"),
   resetDemo: () => request<{ status: string }>("/api/reset", { method: "POST" }),

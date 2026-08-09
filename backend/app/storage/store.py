@@ -107,7 +107,12 @@ class Store:
         return history
 
     def create_rule_version(
-        self, rule_id: str, param_updates: dict[str, Any], approved_by: str, effective_date: date | None = None
+        self,
+        rule_id: str,
+        param_updates: dict[str, Any],
+        approved_by: str,
+        effective_date: date | None = None,
+        drafted_by: str = "Agentic amendment loop",
     ) -> dict[str, Any]:
         """Amends a rule by creating a new version rather than mutating the
         current one in place: the old version is closed out (effective_to
@@ -129,7 +134,7 @@ class Store:
                     new_version["effective_from"] = effective_date.isoformat()
                     new_version["effective_to"] = None
                     new_version["supersedes"] = f"{r['id']}@v{r['version']}"
-                    new_version["drafted_by"] = "Agentic amendment loop"
+                    new_version["drafted_by"] = drafted_by
                     new_version["status"] = "approved"
                     new_version["approved_by"] = approved_by
                     new_version["approved_at"] = datetime.now().isoformat()

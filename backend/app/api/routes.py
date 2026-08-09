@@ -17,6 +17,7 @@ from app.rules.amendment import simulate_amendment
 from app.rules.engine import run_all_rules
 from app.storage.models import CheckRun
 from app.storage.models import Rule
+from app.storage.models import RuleStatus
 from app.storage.store import store
 from app.warnings import scan_for_warnings
 
@@ -118,19 +119,48 @@ class ExtractRequest(BaseModel):
 
 @router.post("/extract")
 def extract_rule(body: ExtractRequest) -> dict:
+    """Runs the LLM extraction pipeline for a clause and persists the result
+    as a fresh pending draft on the matching rule (status forced to
+    needs_review, regardless of confidence) — this covers both first-time
+    extraction and "Re-extract via LLM" from Rules Explorer. Either way the
+    new draft goes through the same human-approval gate as any other rule;
+    it never silently overwrites an already-approved rule's live params."""
     result = run_extraction_pipeline(body.clause_id, body.llm_tier)
 
     if result.get("error"):
         raise HTTPException(422, result["error"])
 
     extraction = result["extraction_json"]
+
+    existing = next((r for r in store.get_rules() if r["clause_id"] == body.clause_id), None)
+    persisted_rule_id: str | None = None
+    if existing is not None:
+        updated = dict(existing)
+        updated["title"] = extraction.get("title", existing["title"])
+        updated["description"] = extraction.get("description", existing["description"])
+        updated["category"] = extraction.get("category", existing["category"])
+        updated["check_type"] = extraction.get("check_type", existing.get("check_type"))
+        updated["params"] = extraction.get("params", existing.get("params", {}))
+        updated["confidence"] = extraction.get("confidence", existing.get("confidence"))
+        updated["tier"] = extraction.get("tier", existing.get("tier"))
+        # An explicit, human-triggered re-draft always needs a fresh human
+        # sign-off — even a high-confidence extraction doesn't get to skip
+        # the approval gate here, unlike the first-time triage_node path.
+        updated["status"] = RuleStatus.NEEDS_REVIEW.value
+        updated["drafted_by"] = "LLM extraction pipeline"
+        updated["approved_by"] = None
+        updated["approved_at"] = None
+        store.upsert_rule(updated)
+        persisted_rule_id = updated["id"]
+
     return {
         "clause_id": body.clause_id,
         "extraction": extraction,
         "final_tier": result["final_tier"],
-        "final_status": result["final_status"],
+        "final_status": RuleStatus.NEEDS_REVIEW.value,
         "provider_used": result["provider_used"],
         "raw_llm_output": result["extraction_raw"],
+        "persisted_rule_id": persisted_rule_id,
     }
 
 
@@ -154,10 +184,26 @@ def get_report() -> dict:
     return scorecard
 
 
+def _result_signature(results: list[dict]) -> tuple:
+    """Order-independent fingerprint of a scorecard's verdicts, used to tell
+    whether two runs actually represent the same compliance state."""
+    return tuple(sorted((r["rule_id"], r["rule_version"], r["verdict"]) for r in results))
+
+
 def _persist_run_if_new_as_of_date(scorecard: dict) -> None:
     existing_runs = store.get_check_runs()  # newest first
     most_recent = existing_runs[0] if existing_runs else None
-    if most_recent is not None and most_recent["as_of_date"] == scorecard["as_of_date"]:
+    if (
+        most_recent is not None
+        and most_recent["as_of_date"] == scorecard["as_of_date"]
+        and _result_signature(most_recent["results"]) == _result_signature(scorecard["results"])
+    ):
+        # Same underlying state as the last persisted run for this date —
+        # don't spam a new run on every dashboard poll/refresh. But if the
+        # live results actually changed (e.g. a rule was approved or
+        # amended since the last run), that's a real change in compliance
+        # state and must get its own audit-trail entry even though
+        # as_of_date didn't move.
         return
 
     run = CheckRun(
@@ -272,6 +318,11 @@ class AmendmentCommitRequest(BaseModel):
     rule_id: str
     param_overrides: dict[str, Any]
     approved_by: str = "Priya Sharma, Compliance Officer"
+    # Which UI flow produced this commit — recorded as the new version's
+    # drafted_by so the audit trail doesn't claim every amendment came from
+    # the agentic Circular Monitor when a human drafted it by hand in the
+    # Amendment Simulator.
+    source: str = "Manual amendment simulator"
 
 
 @router.post("/amendment/commit")
@@ -287,7 +338,22 @@ def commit_amendment(body: AmendmentCommitRequest) -> dict:
     if body.approved_by == rule_data.get("drafted_by"):
         raise HTTPException(422, "The drafter of a rule cannot also approve its amendment (maker-checker).")
 
-    new_version = store.create_rule_version(body.rule_id, body.param_overrides, body.approved_by)
+    # Same approval gate run_all_rules/run_rule enforce for execution: a
+    # rule that hasn't been approved yet can't be amended either, because
+    # create_rule_version below unconditionally flips the new version's
+    # status to "approved" as a side effect — without this check, an
+    # unapproved draft could be smuggled into "approved" via the amendment
+    # flow instead of the real approval flow.
+    if rule_data.get("status") != RuleStatus.APPROVED.value:
+        raise HTTPException(
+            422,
+            f"Rule '{body.rule_id}' is not approved yet (status: {rule_data.get('status')}) "
+            "— approve it via /api/rules/{rule_id}/approve before amending it.",
+        )
+
+    new_version = store.create_rule_version(
+        body.rule_id, body.param_overrides, body.approved_by, drafted_by=body.source
+    )
 
     scorecard = _run_scorecard()
     run = CheckRun(

@@ -32,6 +32,24 @@ def run_rule(rule: Rule, broker: dict[str, Any]) -> CheckResult:
             explanation="This obligation requires human judgment and has no deterministic check.",
         )
 
+    if rule.status != RuleStatus.APPROVED:
+        # Same approval gate run_all_rules enforces — guarded here too so
+        # every caller of run_rule (e.g. the amendment simulator/commit
+        # path, which calls it directly rather than through
+        # run_all_rules) can't execute or commit an unapproved draft.
+        return CheckResult(
+            rule_id=rule.id,
+            rule_title=rule.title,
+            rule_version=rule.version,
+            clause_id=rule.clause_id,
+            citation=rule.citation,
+            category=rule.category,
+            tier=rule.tier,
+            verdict=Verdict.NOT_APPLICABLE,
+            evidence={},
+            explanation="This rule has not been approved yet — it is pending human review and cannot be run.",
+        )
+
     handler = HANDLERS.get(rule.check_type)
     if handler is None:
         raise ValueError(f"No handler registered for check_type '{rule.check_type}'")

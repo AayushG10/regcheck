@@ -44,6 +44,19 @@ def _score(rule: dict, notice_keywords: set[str]) -> int:
     return len(rule_keywords & notice_keywords)
 
 
+def _para_cited_in(para: str, notice_text: str) -> bool:
+    """Whether `para` (e.g. "15.10" or "18.5.5.8-9") is actually cited in the
+    notice text as its own paragraph reference, not merely a substring of a
+    longer one — plain `para in notice_text` would let a notice citing
+    "15.10.1" false-positive match a rule cited "15.10". A citation is
+    bounded on both sides by anything that isn't a digit/dot/hyphen
+    (whitespace, punctuation, string edges)."""
+    if not para:
+        return False
+    pattern = r"(?<![\w.-])" + re.escape(para) + r"(?![\w.-])"
+    return re.search(pattern, notice_text) is not None
+
+
 def diff_node(state: AmendmentPipelineState) -> AmendmentPipelineState:
     if state.get("error"):
         return state
@@ -51,7 +64,7 @@ def diff_node(state: AmendmentPipelineState) -> AmendmentPipelineState:
     notice_text = state["notice_text"]
     rules = store.get_rules()
 
-    candidates = [rule for rule in rules if rule["citation"]["para"] and rule["citation"]["para"] in notice_text]
+    candidates = [rule for rule in rules if _para_cited_in(rule["citation"]["para"], notice_text)]
 
     if not candidates:
         return {
