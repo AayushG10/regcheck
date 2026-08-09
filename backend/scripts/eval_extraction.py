@@ -28,6 +28,14 @@ from app.storage.store import store  # noqa: E402
 
 RESULTS_PATH = Path(__file__).resolve().parent.parent / "data" / "eval_results.json"
 
+# Groq's free tier rate-limits aggressively; a fixed 0.5s gap wasn't enough once
+# other extraction traffic (the dashboard's "Re-extract via LLM" button, the
+# agentic amendment demo) had already used part of the per-minute quota. Space
+# requests out further and retry once with backoff on a 429 rather than just
+# dropping the clause from the eval.
+REQUEST_DELAY_SECONDS = 3.0
+RETRY_DELAY_SECONDS = 20.0
+
 
 def load_ground_truth() -> dict[str, dict]:
     """One ground-truth row per clause, keyed by clause_id — sourced from
@@ -59,13 +67,20 @@ def main() -> None:
 
     print(f"Running extraction against {len(ground_truth)} clauses via Groq (fast tier)...\n")
 
-    for clause in corpus["clauses"]:
+    for i, clause in enumerate(corpus["clauses"]):
         clause_id = clause["clause_id"]
         truth = ground_truth.get(clause_id)
         if truth is None:
             continue
 
+        if i > 0:
+            time.sleep(REQUEST_DELAY_SECONDS)
+
         result = run_extraction_pipeline(clause_id, llm_tier="fast")
+        if result.get("error") and "429" in str(result["error"]):
+            print(f"  … {clause_id}: rate limited, backing off {RETRY_DELAY_SECONDS:.0f}s and retrying once")
+            time.sleep(RETRY_DELAY_SECONDS)
+            result = run_extraction_pipeline(clause_id, llm_tier="fast")
         if result.get("error"):
             print(f"  ✗ {clause_id}: extraction failed — {result['error']}")
             continue
@@ -90,11 +105,15 @@ def main() -> None:
         mark = "✓" if row["check_type_match"] else "✗"
         print(f"  {mark} {clause_id:35s} truth={str(truth['check_type']):28s} pred={pred_check_type}")
 
-        time.sleep(0.5)  # stay well clear of Groq's free-tier rate limit
-
     if not rows:
         print("\nNo rows scored — check GROQ_API_KEY is set in backend/.env.")
         return
+
+    if len(rows) < len(ground_truth):
+        print(
+            f"\n⚠ Only {len(rows)}/{len(ground_truth)} clauses scored (the rest were rate-limited "
+            "twice in a row). Results below are real but partial — re-run in a minute for the full set."
+        )
 
     check_type_accuracy = sum(r["check_type_match"] for r in rows) / len(rows)
     tier_accuracy = sum(r["tier_match"] for r in rows) / len(rows)

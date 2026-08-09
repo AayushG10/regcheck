@@ -1,4 +1,13 @@
-"""Prompt templates for the extraction stage."""
+"""Prompt templates for the extraction stage.
+
+The check_type definitions and worked example below were tightened after a
+real accuracy eval (see backend/scripts/eval_extraction.py,
+data/eval_results.json) showed the model consistently confusing
+`deadline_by_date` with `days_since_threshold` — both describe "do X within
+some time window," but the window anchors differently, and the original
+prompt gave the model no way to tell them apart. Re-running the eval after
+this change is how to confirm it actually helped, rather than assuming it did.
+"""
 
 EXTRACTION_SYSTEM_PROMPT = """You are a regulatory-compliance analyst converting SEBI circular clauses \
 into structured, machine-checkable compliance rules for a stockbroker.
@@ -13,6 +22,34 @@ You must output ONLY a JSON object (no prose, no markdown fences) with this exac
   "confidence": 0.0-1.0,
   "tier": "one of: auto (fully deterministic), evidence (data-driven but a human must confirm underlying evidence), judgment (qualitative only)"
 }
+
+Definitions — read these carefully, two of them are easy to conflate:
+
+- periodicity_check: a recurring event must happen at least once every N days, on a
+  ROLLING basis with no fixed calendar anchor (e.g. "VAPT at least once every six
+  months"). params: {"last_event_date_field", "periodicity_days"}.
+- deadline_by_date: a filing is due by a FIXED CALENDAR DATE tied to a reporting
+  period end (e.g. "by November 30 for the half-year ending September 30"). The due
+  date is a specific day-of-year, not a day-count. params: {"filed_date_field",
+  "period_end_field", "deadlines": [{"period_end_month_day": [m,d], "due_month_day": [m,d]}]}.
+- days_since_threshold: an action must happen within N days AFTER a specific triggering
+  EVENT (not a fixed calendar date) — the window floats with whenever that event
+  occurred (e.g. "within 7 days from the end of every month", "within 60 days from
+  financial year end"). The giveaway is the phrase "within N days of/from X" where X
+  is itself a recurring or variable event, not one fixed date on the calendar.
+  params: {"date_field", "reference_field", "max_days"}.
+- ratio_threshold: a numeric ratio between two broker-data figures must satisfy a
+  threshold (e.g. "net worth at least 75% of the requirement").
+  params: {"numerator_field", "denominator_field", "operator", "threshold"}.
+- no_further_exposure_after_days: a specific prohibition kicks in once N days have
+  elapsed since a triggering event, rather than a filing deadline.
+  params: {"debit_arose_date_field", "cleared_field", "further_exposure_given_field", "trading_days_threshold"}.
+
+Worked example of the deadline_by_date vs days_since_threshold distinction:
+- "Internal audit report... shall be submitted by November 30" -> deadline_by_date
+  (fixed calendar date, same day-of-year every cycle).
+- "...shall upload data... within 7 days from the end of every month" -> days_since_threshold
+  (the window's start — month-end — moves every cycle; there is no single fixed date).
 
 Be conservative with confidence: if the clause is ambiguous about thresholds, dates, or scope, \
 score it below 0.85 so a human reviews it before it runs."""

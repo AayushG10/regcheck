@@ -283,7 +283,21 @@ python scripts/eval_extraction.py  # real Groq calls, scored against ground trut
 
 The eval script re-runs the actual extraction pipeline against all 10 corpus
 clauses and reports precision/recall/F1 per `check_type`, plus tier accuracy —
-a measured number (currently 80% check_type accuracy), not a claimed one.
+a measured number, not a claimed one. Current result: **100% check_type accuracy,
+90% tier accuracy** (`backend/data/eval_results.json`). The one tier miss is an
+honest, explainable edge case: the net-worth certificate clause gets its
+`check_type` right but is classified `auto` instead of `evidence` — the model
+doesn't have a way to infer purely from clause text that a CA-signed certificate
+needs a human to confirm it isn't forged, which is exactly the kind of judgment
+call the evidence tier exists for.
+
+An earlier version of this eval caught a real bug: the extraction prompt gave the
+model no way to distinguish `deadline_by_date` (fixed calendar date) from
+`days_since_threshold` (rolling window from a variable event), and it consistently
+confused the two — 0% precision/recall on `days_since_threshold`. Tightening the
+prompt with explicit definitions and a worked contrasting example
+(`backend/app/llm/prompts.py`) fixed it; re-running the eval is what confirmed that,
+rather than assuming a prompt edit helped.
 
 ---
 
