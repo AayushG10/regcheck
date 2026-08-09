@@ -78,6 +78,7 @@ export default function CircularMonitor() {
         (k) => JSON.stringify(result.matched_rule.params[k]) !== JSON.stringify(result.proposal.params[k])
       )
     : [];
+  const isNoOpProposal = result !== null && changedKeys.length === 0;
 
   return (
     <div>
@@ -156,6 +157,13 @@ export default function CircularMonitor() {
                   </div>
                 </div>
 
+                {isNoOpProposal && (
+                  <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+                    No parameter changes detected in this proposal — the drafted params are identical to the
+                    matched rule&apos;s current params, so there is nothing to approve.
+                  </p>
+                )}
+
                 <div className="mb-4 flex items-center gap-2">
                   <Badge variant={result.proposal.confidence >= 0.85 ? "teal" : "warning"}>
                     {(result.proposal.confidence * 100).toFixed(0)}% confidence
@@ -185,14 +193,20 @@ export default function CircularMonitor() {
                     </div>
                   </div>
                 </div>
-                <Button variant={approved ? "secondary" : "default"} disabled={approving || approved} onClick={handleApprove}>
+                <Button
+                  variant={approved ? "secondary" : "default"}
+                  disabled={approving || approved || isNoOpProposal}
+                  onClick={handleApprove}
+                  title={isNoOpProposal ? "No parameter changes detected in this proposal — nothing to approve." : undefined}
+                >
                   {approved ? (
                     <>
                       <History className="h-4 w-4" /> Approved — view in Run History
                     </>
                   ) : (
                     <>
-                      <ArrowRight className="h-4 w-4" /> {approving ? "Applying…" : "Approve & apply"}
+                      <ArrowRight className="h-4 w-4" />{" "}
+                      {approving ? "Applying…" : isNoOpProposal ? "Nothing to approve" : "Approve & apply"}
                     </>
                   )}
                 </Button>
