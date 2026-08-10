@@ -26,6 +26,7 @@ import { api, type CheckResult, type Verdict } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { formatEvidenceValue } from "@/lib/format";
+import { useCountUp } from "@/lib/useCountUp";
 
 const VERDICT_CONFIG = {
   PASS: { icon: CheckCircle2, badge: "pass" as const, ring: "ring-emerald-200 dark:ring-emerald-900" },
@@ -107,6 +108,9 @@ export default function Scorecard() {
   }, [data]);
 
   const complianceScore = data && data.total_checked > 0 ? Math.round((data.passed / data.total_checked) * 100) : 0;
+  const animatedScore = Math.round(useCountUp(complianceScore));
+  const animatedPassed = Math.round(useCountUp(data?.passed ?? 0));
+  const animatedFailed = Math.round(useCountUp(data?.failed ?? 0));
 
   function handleExport(format: "csv" | "json") {
     if (!data) return;
@@ -137,63 +141,101 @@ export default function Scorecard() {
         <>
           {/* Hero: compliance gauge + category breakdown */}
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <Card className="lg:col-span-2">
-              <CardContent className="flex flex-col items-center p-6">
-                <div className="relative h-40 w-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadialBarChart
-                      innerRadius="72%"
-                      outerRadius="100%"
-                      data={[{ name: "score", value: complianceScore, fill: complianceScore >= 60 ? PASS_COLOR : FAIL_COLOR }]}
-                      startAngle={90}
-                      endAngle={-270}
-                    >
-                      <PolarAngleAxis type="number" domain={[0, 100]} tick={false} axisLine={false} />
-                      <RadialBar dataKey="value" cornerRadius={20} background={{ fill: "var(--color-slate-100)" }} />
-                    </RadialBarChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-bold tabular-nums text-slate-900 dark:text-white">{complianceScore}%</span>
-                    <span className="text-[11px] text-slate-400">compliant</span>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="lg:col-span-2"
+            >
+              <Card className="h-full overflow-hidden">
+                <CardContent className="flex flex-col items-center p-6">
+                  <div className="relative h-40 w-40">
+                    {/* Soft glow behind the gauge, tinted by the current score */}
+                    <div
+                      className="absolute inset-2 rounded-full opacity-40 blur-xl transition-colors duration-700"
+                      style={{ backgroundColor: complianceScore >= 60 ? PASS_COLOR : FAIL_COLOR }}
+                    />
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart
+                        innerRadius="72%"
+                        outerRadius="100%"
+                        data={[{ name: "score", value: complianceScore, fill: "url(#gaugeGradient)" }]}
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        <defs>
+                          <linearGradient id="gaugeGradient" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor={complianceScore >= 60 ? "#34d399" : "#fb7185"} />
+                            <stop offset="100%" stopColor={complianceScore >= 60 ? PASS_COLOR : FAIL_COLOR} />
+                          </linearGradient>
+                        </defs>
+                        <PolarAngleAxis type="number" domain={[0, 100]} tick={false} axisLine={false} />
+                        <RadialBar
+                          dataKey="value"
+                          cornerRadius={20}
+                          background={{ fill: "var(--color-slate-100)" }}
+                          animationDuration={900}
+                          animationEasing="ease-out"
+                        />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-3xl font-bold tabular-nums text-slate-900 dark:text-white">{animatedScore}%</span>
+                      <span className="text-[11px] text-slate-400">compliant</span>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-4 grid w-full grid-cols-2 gap-3 text-center">
-                  <div>
-                    <div className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{data.passed}</div>
-                    <div className="text-[11px] text-slate-400">passed</div>
+                  <div className="mt-4 grid w-full grid-cols-2 gap-3 text-center">
+                    <div>
+                      <div className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{animatedPassed}</div>
+                      <div className="text-[11px] text-slate-400">passed</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold tabular-nums text-rose-600 dark:text-rose-400">{animatedFailed}</div>
+                      <div className="text-[11px] text-slate-400">failed</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-lg font-bold tabular-nums text-rose-600 dark:text-rose-400">{data.failed}</div>
-                    <div className="text-[11px] text-slate-400">failed</div>
+                  <div className="mt-4 w-full border-t border-slate-100 pt-3 text-center text-xs text-slate-400 dark:border-slate-800">
+                    {data.broker_name} · as of {data.as_of_date}
                   </div>
-                </div>
-                <div className="mt-4 w-full border-t border-slate-100 pt-3 text-center text-xs text-slate-400 dark:border-slate-800">
-                  {data.broker_name} · as of {data.as_of_date}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <Card className="lg:col-span-3">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.08 }}
+              className="lg:col-span-3"
+            >
+              <Card className="h-full">
               <CardContent className="p-6">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div className="text-sm font-semibold text-slate-900 dark:text-white">Pass/fail by category</div>
                   <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                     <span className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PASS_COLOR }} />
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ backgroundColor: PASS_COLOR }} />
+                        <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: PASS_COLOR }} />
+                      </span>
                       Pass ({data.passed})
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full" style={{ backgroundColor: FAIL_COLOR }} />
                       Fail ({data.failed})
                     </span>
-                    {categoryFilter !== "ALL" && (
-                      <button
-                        onClick={() => setCategoryFilter("ALL")}
-                        className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50"
-                      >
-                        {categoryFilter} <X className="h-3 w-3" />
-                      </button>
-                    )}
+                    <AnimatePresence>
+                      {categoryFilter !== "ALL" && (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          onClick={() => setCategoryFilter("ALL")}
+                          className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50"
+                        >
+                          {categoryFilter} <X className="h-3 w-3" />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={240}>
@@ -237,6 +279,9 @@ export default function Scorecard() {
                       fill={PASS_COLOR}
                       radius={[0, 0, 0, 0]}
                       cursor="pointer"
+                      animationDuration={700}
+                      animationEasing="ease-out"
+                      activeBar={{ fillOpacity: 0.75, stroke: PASS_COLOR, strokeWidth: 1 }}
                       onClick={(entry) => setCategoryFilter((entry as unknown as { category: string }).category)}
                     >
                       <LabelList
@@ -253,6 +298,9 @@ export default function Scorecard() {
                       fill={FAIL_COLOR}
                       radius={[0, 4, 4, 0]}
                       cursor="pointer"
+                      animationDuration={700}
+                      animationEasing="ease-out"
+                      activeBar={{ fillOpacity: 0.75, stroke: FAIL_COLOR, strokeWidth: 1 }}
                       onClick={(entry) => setCategoryFilter((entry as unknown as { category: string }).category)}
                     >
                       <LabelList
@@ -266,7 +314,8 @@ export default function Scorecard() {
                 </ResponsiveContainer>
                 <p className="mt-2 text-center text-[11px] text-slate-400">Click a bar to filter the list below by that category.</p>
               </CardContent>
-            </Card>
+              </Card>
+            </motion.div>
           </div>
 
           {/* Filter + search toolbar */}
