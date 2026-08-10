@@ -3,7 +3,7 @@ codebase; split by prefix if this grows further."""
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -431,12 +431,19 @@ def agentic_detect(body: AgenticDetectRequest) -> dict:
 # propose pipeline `agentic_detect` uses for the demo's canned notices.
 # ---------------------------------------------------------------------
 @router.get("/agentic/sebi-feed")
-def sebi_feed_preview() -> dict:
-    """Lists recent real circulars from SEBI's feed and whether each has
-    already been processed — lets the UI show what polling would find
-    before actually running the (slower) fetch+extract+LLM pipeline."""
+def sebi_feed_preview(from_date: str | None = None, to_date: str | None = None) -> dict:
+    """Lists recent real circulars from SEBI's feed — optionally restricted
+    to a date range (YYYY-MM-DD, from the UI's date inputs) — and whether
+    each has already been processed. Lets the UI show what polling would
+    find before actually running the (slower) fetch+extract+LLM pipeline."""
     try:
-        items = fetch_circular_feed_items(limit=10)
+        items = fetch_circular_feed_items(
+            limit=25,
+            from_date=date.fromisoformat(from_date) if from_date else None,
+            to_date=date.fromisoformat(to_date) if to_date else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, f"Invalid date: {exc}") from exc
     except SebiFetchError as exc:
         raise HTTPException(502, str(exc)) from exc
 
@@ -451,12 +458,20 @@ def sebi_feed_preview() -> dict:
 
 class SebiPollRequest(BaseModel):
     llm_tier: str = "fast"
+    from_date: str | None = None  # YYYY-MM-DD
+    to_date: str | None = None
 
 
 @router.post("/agentic/poll-sebi")
 def agentic_poll_sebi(body: SebiPollRequest) -> dict:
     try:
-        items = fetch_circular_feed_items(limit=10)
+        from_d = date.fromisoformat(body.from_date) if body.from_date else None
+        to_d = date.fromisoformat(body.to_date) if body.to_date else None
+    except ValueError as exc:
+        raise HTTPException(422, f"Invalid date: {exc}") from exc
+
+    try:
+        items = fetch_circular_feed_items(limit=25, from_date=from_d, to_date=to_d)
     except SebiFetchError as exc:
         raise HTTPException(502, f"Could not reach SEBI's feed: {exc}") from exc
 

@@ -267,11 +267,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ notice_text, llm_tier }),
     }),
-  getSebiFeed: () => request<{ items: SebiFeedItem[] }>("/api/agentic/sebi-feed"),
-  pollSebi: (llm_tier: "fast" | "strong" = "fast") =>
+  getSebiFeed: (fromDate?: string, toDate?: string) => {
+    const qs = new URLSearchParams();
+    if (fromDate) qs.set("from_date", fromDate);
+    if (toDate) qs.set("to_date", toDate);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request<{ items: SebiFeedItem[] }>(`/api/agentic/sebi-feed${suffix}`);
+  },
+  pollSebi: (llm_tier: "fast" | "strong" = "fast", fromDate?: string, toDate?: string) =>
     request<SebiPollResult>("/api/agentic/poll-sebi", {
       method: "POST",
-      body: JSON.stringify({ llm_tier }),
+      body: JSON.stringify({ llm_tier, from_date: fromDate || undefined, to_date: toDate || undefined }),
     }),
 };
 

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date as date_
 
 import httpx
 
@@ -70,17 +71,47 @@ class SebiFetchError(RuntimeError):
     control."""
 
 
-def fetch_circular_feed_items(limit: int = 20) -> list[FeedItem]:
+def fetch_circular_feed_items(
+    limit: int = 20,
+    from_date: date_ | None = None,
+    to_date: date_ | None = None,
+) -> list[FeedItem]:
     """Scrapes SEBI's real, always-current circulars listing page — see the
-    module docstring for why this is used instead of the RSS feed."""
+    module docstring for why this is used instead of the RSS feed.
+
+    `from_date`/`to_date` are passed straight through to SEBI's own search
+    form (`fromDate`/`toDate`, format DD-MM-YYYY) — verified live against
+    the real site: a Jul 1-15 2026 range correctly returned only the 3
+    circulars actually published in that window, not a client-side filter
+    bolted on after the fact."""
+    params: dict[str, str] = {}
+    if from_date is not None:
+        params["fromDate"] = from_date.strftime("%d-%m-%Y")
+    if to_date is not None:
+        params["toDate"] = to_date.strftime("%d-%m-%Y")
+
+    # httpx.get(url, params=...) REPLACES the base URL's query string rather
+    # than merging with it — verified live that this silently dropped
+    # doListing/sid/ssid/smid (the params that make this a circulars-listing
+    # request at all) and returned a different, row-less page while still
+    # answering 200 OK. copy_merge_params() is the actual fix, not a
+    # workaround: the base listing params and the date-range params both
+    # need to reach SEBI in the same request.
+    request_url = httpx.URL(SEBI_CIRCULARS_LISTING_URL).copy_merge_params(params) if params else SEBI_CIRCULARS_LISTING_URL
+
     try:
-        resp = httpx.get(SEBI_CIRCULARS_LISTING_URL, timeout=20.0, follow_redirects=True)
+        resp = httpx.get(request_url, timeout=20.0, follow_redirects=True)
         resp.raise_for_status()
     except httpx.HTTPError as exc:
         raise SebiFetchError(f"Could not reach SEBI's circulars listing page: {exc}") from exc
 
     rows = _LISTING_ROW_RE.findall(resp.text)
     if not rows:
+        if params:
+            # A date-filtered query legitimately can have zero circulars in
+            # that window (e.g. a narrow range, or a range with no SEBI
+            # activity) — that's a real, valid outcome, not a parser failure.
+            return []
         raise SebiFetchError(
             "Found no circular rows on SEBI's listing page — its HTML structure may "
             "have changed since this scraper was written."

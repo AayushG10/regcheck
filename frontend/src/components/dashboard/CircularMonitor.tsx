@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Radar, Sparkles, ArrowRight, ShieldCheck, History, FileText, Globe, ExternalLink, CheckCircle2, Loader2 } from "lucide-react";
+import { Radar, Sparkles, ArrowRight, ShieldCheck, History, FileText, Globe, ExternalLink, CheckCircle2, Loader2, Search, CircleDot } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import PageHeader from "./PageHeader";
 import ClauseLink from "./ClauseLink";
-import { api, ApiError, type AgenticDetectResult, type SebiCircularSource } from "@/lib/api";
+import { api, ApiError, type AgenticDetectResult, type SebiCircularSource, type SebiFeedItem } from "@/lib/api";
 
 const SAMPLE_NOTICES = [
   {
@@ -51,12 +51,36 @@ export default function CircularMonitor() {
   const [pollMessage, setPollMessage] = useState<string | null>(null);
   const [realSource, setRealSource] = useState<SebiCircularSource | null>(null);
 
+  // Date range (YYYY-MM-DD, matching <input type="date">) — passed straight
+  // through to SEBI's own search form (fromDate/toDate) on the backend, not
+  // filtered client-side, so "3 circulars in this range" genuinely means
+  // SEBI's site returned exactly those 3.
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [previewing, setPreviewing] = useState(false);
+  const [previewItems, setPreviewItems] = useState<SebiFeedItem[] | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  async function handlePreviewRange() {
+    setPreviewing(true);
+    setPreviewError(null);
+    setPreviewItems(null);
+    try {
+      const res = await api.getSebiFeed(fromDate || undefined, toDate || undefined);
+      setPreviewItems(res.items);
+    } catch (err) {
+      setPreviewError(err instanceof ApiError ? err.message : "Could not reach SEBI's site");
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   async function handlePollSebi() {
     setPolling(true);
     setPollMessage(null);
     setDetectError(null);
     try {
-      const res = await api.pollSebi("fast");
+      const res = await api.pollSebi("fast", fromDate || undefined, toDate || undefined);
       if (!res.new_circular_found) {
         setPollMessage(res.message ?? "No unprocessed circulars found right now.");
         setResult(null);
@@ -146,9 +170,91 @@ export default function CircularMonitor() {
             hasn't been processed yet, extracts its real PDF text, and runs it through the same
             monitor → diff → propose pipeline as the samples below — no canned text.
           </p>
+
+          <div className="mb-4 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400" htmlFor="fromDate">
+                From
+              </label>
+              <input
+                id="fromDate"
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                max={toDate || undefined}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-teal-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400" htmlFor="toDate">
+                To
+              </label>
+              <input
+                id="toDate"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                min={fromDate || undefined}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-teal-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+              />
+            </div>
+            <Button variant="secondary" size="sm" disabled={previewing} onClick={handlePreviewRange}>
+              {previewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+              {previewing ? "Checking sebi.gov.in…" : "Preview what's in range"}
+            </Button>
+            {(fromDate || toDate) && (
+              <button
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                  setPreviewItems(null);
+                  setPreviewError(null);
+                }}
+                className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                Clear range
+              </button>
+            )}
+          </div>
+
+          {previewError && <p className="mb-3 text-xs text-rose-600 dark:text-rose-400">{previewError}</p>}
+
+          {previewItems && (
+            <div className="mb-4 max-h-56 space-y-1.5 overflow-y-auto rounded-xl border border-slate-100 p-3 dark:border-slate-800">
+              {previewItems.length === 0 ? (
+                <p className="text-xs text-slate-400">No circulars found on sebi.gov.in in that range.</p>
+              ) : (
+                <>
+                  <p className="mb-1 text-[11px] font-medium text-slate-400">
+                    {previewItems.length} circular{previewItems.length === 1 ? "" : "s"} found on sebi.gov.in
+                    {fromDate || toDate ? " in this range" : ""}:
+                  </p>
+                  {previewItems.map((item) => (
+                    <div key={item.link} className="flex items-start gap-2 text-xs">
+                      <CircleDot
+                        className={`mt-0.5 h-3 w-3 shrink-0 ${item.already_processed ? "text-slate-300 dark:text-slate-600" : "text-teal-500"}`}
+                      />
+                      <div className="min-w-0">
+                        <span className={item.already_processed ? "text-slate-400 line-through" : "text-slate-700 dark:text-slate-300"}>
+                          {item.title}
+                        </span>
+                        <span className="ml-1.5 text-slate-400">· {item.pub_date}</span>
+                        {item.already_processed && <span className="ml-1.5 text-slate-400">(already processed)</span>}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
           <Button variant="teal" disabled={polling} onClick={handlePollSebi}>
             {polling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-            {polling ? "Fetching from sebi.gov.in…" : "Poll SEBI's live feed"}
+            {polling
+              ? "Fetching from sebi.gov.in…"
+              : fromDate || toDate
+                ? "Fetch next unprocessed circular in range"
+                : "Poll SEBI's live feed"}
           </Button>
           {pollMessage && (
             <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{pollMessage}</p>
