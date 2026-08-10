@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.pipeline.amendment_graph import run_amendment_pipeline
 from app.pipeline.graph import run_extraction_pipeline
+from app.pipeline.sebi_fetch import SebiFetchError, fetch_circular_detail, fetch_circular_feed_items
 from app.pipeline.triage import compute_coverage
 from app.remediation import build_remediation_tasks
 from app.rules.amendment import simulate_amendment
@@ -417,6 +418,96 @@ def agentic_detect(body: AgenticDetectRequest) -> dict:
 
     matched_rule = store.get_rule(result["matched_rule_id"])
     return {
+        "matched_rule": matched_rule,
+        "proposal": result["proposal_json"],
+        "provider_used": result["provider_used"],
+    }
+
+
+# ---------------------------------------------------------------------
+# Real SEBI circular polling — the production version of the button above.
+# Polls SEBI's actual RSS feed, downloads and extracts the first not-yet-seen
+# circular's PDF, and feeds its real text through the same monitor -> diff ->
+# propose pipeline `agentic_detect` uses for the demo's canned notices.
+# ---------------------------------------------------------------------
+@router.get("/agentic/sebi-feed")
+def sebi_feed_preview() -> dict:
+    """Lists recent real circulars from SEBI's feed and whether each has
+    already been processed — lets the UI show what polling would find
+    before actually running the (slower) fetch+extract+LLM pipeline."""
+    try:
+        items = fetch_circular_feed_items(limit=10)
+    except SebiFetchError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+    seen = set(store.get_seen_circular_links())
+    return {
+        "items": [
+            {"title": i.title, "link": i.link, "pub_date": i.pub_date, "already_processed": i.link in seen}
+            for i in items
+        ]
+    }
+
+
+class SebiPollRequest(BaseModel):
+    llm_tier: str = "fast"
+
+
+@router.post("/agentic/poll-sebi")
+def agentic_poll_sebi(body: SebiPollRequest) -> dict:
+    try:
+        items = fetch_circular_feed_items(limit=10)
+    except SebiFetchError as exc:
+        raise HTTPException(502, f"Could not reach SEBI's feed: {exc}") from exc
+
+    seen = set(store.get_seen_circular_links())
+    unseen = [i for i in items if i.link not in seen]
+
+    if not unseen:
+        return {"new_circular_found": False, "message": "No unprocessed circulars in SEBI's current feed window."}
+
+    # Walk unseen circulars in order. A circular whose PDF can't be parsed
+    # (e.g. a scanned image with no digital text — a real, expected case, not
+    # hypothetical: hit on a live poll during testing) is still marked seen
+    # so polling doesn't retry the same unparseable document forever; its
+    # failure is collected and surfaced rather than silently skipped.
+    skipped: list[dict[str, str]] = []
+    detail = None
+    target = None
+    for candidate in unseen:
+        try:
+            detail = fetch_circular_detail(candidate.link)
+            target = candidate
+            break
+        except SebiFetchError as exc:
+            store.mark_circular_seen(candidate.link)
+            skipped.append({"title": candidate.title, "link": candidate.link, "reason": str(exc)})
+
+    if detail is None or target is None:
+        return {
+            "new_circular_found": False,
+            "message": f"Could not extract text from any of the {len(unseen)} unprocessed circular(s) found.",
+            "skipped": skipped,
+        }
+
+    store.mark_circular_seen(target.link)
+
+    result = run_amendment_pipeline(detail.text, body.llm_tier)
+    if result.get("error"):
+        # The circular was real and successfully fetched; the pipeline just
+        # didn't find a matching obligation or the LLM call failed -- still
+        # surface the real source so the UI shows what was actually fetched.
+        return {
+            "new_circular_found": True,
+            "source": {"title": detail.title, "link": detail.link, "circular_no": detail.circular_no, "date": detail.date, "pdf_url": detail.pdf_url},
+            "error": result["error"],
+        }
+
+    matched_rule = store.get_rule(result["matched_rule_id"])
+    return {
+        "new_circular_found": True,
+        "source": {"title": detail.title, "link": detail.link, "circular_no": detail.circular_no, "date": detail.date, "pdf_url": detail.pdf_url},
+        "notice_text": detail.text,
         "matched_rule": matched_rule,
         "proposal": result["proposal_json"],
         "provider_used": result["provider_used"],

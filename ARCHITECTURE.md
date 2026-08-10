@@ -106,9 +106,18 @@ the interesting complexity in RegCheck is the deterministic engine and the audit
 trail behind it, not the graph topology. LangGraph earns its place here specifically
 because it gives each pipeline a clean, typed, inspectable state object
 (`PipelineState`, `AmendmentPipelineState`) that's straightforward to extend — e.g. a
-retry-on-low-confidence branch, or a real scheduled poller feeding `monitor_node`
-instead of the demo's manually-supplied notice text — without restructuring anything
-downstream.
+retry-on-low-confidence branch, without restructuring anything downstream.
+
+**`monitor_node`'s real input source.** The demo ships with a manually-supplied notice
+text (the sample buttons on Circular Monitor), but `pipeline/sebi_fetch.py` is the real
+version of the same seam: it polls SEBI's actual, live circulars listing page (verified
+against SEBI's real site — the RSS feed at sebirss.xml turned out too sparse for
+circulars specifically and was dropped in favor of the listing page), downloads and
+extracts an unseen circular's real PDF text with pdfplumber, and feeds that straight
+into `monitor_node` exactly like the manual samples do. `GET /api/agentic/sebi-feed` and
+`POST /api/agentic/poll-sebi` expose this. A circular whose PDF can't be extracted (a
+scanned image, no digital text) is marked seen with the failure reason recorded, rather
+than silently retried forever or silently dropped.
 
 ## Provider routing (Groq + OpenRouter)
 

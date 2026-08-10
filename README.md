@@ -361,7 +361,13 @@ rather than assuming a prompt edit helped.
   clean repository interface (`storage/store.py`) so swapping in SQLite or adding a
   Neo4j-backed obligation-supersession graph later doesn't touch the engine or API.
 - **The circular corpus is a curated excerpt**, not a full PDF parse — `pipeline/ingest.py`
-  is the single seam where a real PDF-fetch-and-chunk step would slot in.
+  is the single seam where a real PDF-fetch-and-chunk step would slot in. The *amendment
+  detection* side of the pipeline, however, does real fetching today: `pipeline/sebi_fetch.py`
+  polls SEBI's actual live circulars index, downloads and extracts a real, unseen circular's
+  PDF text (verified against SEBI's real site, not a mock), and feeds it through the same
+  monitor → diff → propose loop — see **"Fetch a real circular from SEBI"** on the Circular
+  Monitor page. Scanned/image-only circular PDFs are a known, surfaced limitation (no OCR),
+  not silently swallowed.
 - **Broker data is synthetic**, for the reasons explained above (SEBI's SCORES data is
   aggregate-only). The schema is realistic and the seam to a real back-office/Sandbox
   feed is `storage/store.py::get_broker_profile()`.

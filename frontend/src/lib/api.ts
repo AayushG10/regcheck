@@ -159,6 +159,33 @@ export interface AgenticDetectResult {
   provider_used: string;
 }
 
+export interface SebiFeedItem {
+  title: string;
+  link: string;
+  pub_date: string;
+  already_processed: boolean;
+}
+
+export interface SebiCircularSource {
+  title: string;
+  link: string;
+  circular_no: string | null;
+  date: string | null;
+  pdf_url: string | null;
+}
+
+export interface SebiPollResult {
+  new_circular_found: boolean;
+  message?: string;
+  skipped?: Array<{ title: string; link: string; reason: string }>;
+  source?: SebiCircularSource;
+  notice_text?: string;
+  matched_rule?: Rule;
+  proposal?: { params: Record<string, unknown>; confidence: number; rationale: string };
+  provider_used?: string;
+  error?: string;
+}
+
 export interface ExtractionResponse {
   clause_id: string;
   extraction: {
@@ -239,6 +266,12 @@ export const api = {
     request<AgenticDetectResult>("/api/agentic/detect", {
       method: "POST",
       body: JSON.stringify({ notice_text, llm_tier }),
+    }),
+  getSebiFeed: () => request<{ items: SebiFeedItem[] }>("/api/agentic/sebi-feed"),
+  pollSebi: (llm_tier: "fast" | "strong" = "fast") =>
+    request<SebiPollResult>("/api/agentic/poll-sebi", {
+      method: "POST",
+      body: JSON.stringify({ llm_tier }),
     }),
 };
 

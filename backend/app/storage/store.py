@@ -23,6 +23,7 @@ RULES_LIVE_PATH = DATA_DIR / "rules.live.json"  # working copy, mutated by extra
 RULES_HISTORY_PATH = DATA_DIR / "rules.history.json"  # append-only: closed-out prior rule versions
 CHECK_RUNS_PATH = DATA_DIR / "check_runs.json"  # append-only: persisted scorecard snapshots
 BROKER_PROFILE_PATH = DATA_DIR / "broker_profile.json"
+SEEN_CIRCULARS_PATH = DATA_DIR / "seen_circulars.json"  # links already processed by real SEBI polling
 
 _lock = threading.Lock()
 
@@ -55,6 +56,10 @@ class Store:
             with _lock:
                 if not CHECK_RUNS_PATH.exists():
                     _write_json(CHECK_RUNS_PATH, [])
+        if not SEEN_CIRCULARS_PATH.exists():
+            with _lock:
+                if not SEEN_CIRCULARS_PATH.exists():
+                    _write_json(SEEN_CIRCULARS_PATH, [])
 
     # -- circular corpus (read-only ingest source) --------------------
     def get_circular_corpus(self) -> dict[str, Any]:
@@ -94,6 +99,7 @@ class Store:
             _write_json(RULES_LIVE_PATH, _read_json(RULES_SEED_PATH))
             _write_json(RULES_HISTORY_PATH, [])
             _write_json(CHECK_RUNS_PATH, [])
+            _write_json(SEEN_CIRCULARS_PATH, [])
 
     # -- rule versioning (the audit trail's foundation) -------------------
     def get_rule_history(self, rule_id: str | None = None) -> list[dict[str, Any]]:
@@ -168,6 +174,18 @@ class Store:
     # -- broker data (read-only for the demo) --------------------------
     def get_broker_profile(self) -> dict[str, Any]:
         return _read_json(BROKER_PROFILE_PATH)
+
+    # -- real SEBI circular polling: which links have already been processed --
+    def get_seen_circular_links(self) -> list[str]:
+        with _lock:
+            return _read_json(SEEN_CIRCULARS_PATH)
+
+    def mark_circular_seen(self, link: str) -> None:
+        with _lock:
+            seen = _read_json(SEEN_CIRCULARS_PATH)
+            if link not in seen:
+                seen.append(link)
+                _write_json(SEEN_CIRCULARS_PATH, seen)
 
 
 store = Store()

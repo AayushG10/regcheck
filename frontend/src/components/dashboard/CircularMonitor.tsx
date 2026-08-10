@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Radar, Sparkles, ArrowRight, ShieldCheck, History, FileText } from "lucide-react";
+import { Radar, Sparkles, ArrowRight, ShieldCheck, History, FileText, Globe, ExternalLink, CheckCircle2, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import PageHeader from "./PageHeader";
 import ClauseLink from "./ClauseLink";
-import { api, ApiError, type AgenticDetectResult } from "@/lib/api";
+import { api, ApiError, type AgenticDetectResult, type SebiCircularSource } from "@/lib/api";
 
 const SAMPLE_NOTICES = [
   {
@@ -41,12 +41,56 @@ export default function CircularMonitor() {
   const [approving, setApproving] = useState(false);
   const [approved, setApproved] = useState(false);
 
+  // Real SEBI polling — fetches SEBI's actual, live circulars listing page,
+  // downloads and extracts whichever circular hasn't been processed yet, and
+  // runs it through the exact same monitor -> diff -> propose pipeline as the
+  // sample buttons above. `realSource` carries the genuine circular's title/
+  // date/number/link so the UI can prove the match came from a real document,
+  // not a canned string.
+  const [polling, setPolling] = useState(false);
+  const [pollMessage, setPollMessage] = useState<string | null>(null);
+  const [realSource, setRealSource] = useState<SebiCircularSource | null>(null);
+
+  async function handlePollSebi() {
+    setPolling(true);
+    setPollMessage(null);
+    setDetectError(null);
+    try {
+      const res = await api.pollSebi("fast");
+      if (!res.new_circular_found) {
+        setPollMessage(res.message ?? "No unprocessed circulars found right now.");
+        setResult(null);
+        setRealSource(null);
+        return;
+      }
+      if (res.error || !res.matched_rule || !res.proposal) {
+        setPollMessage(
+          `Fetched a real SEBI circular — "${res.source?.title}" — but ${res.error ?? "could not match it to any rule"}.`
+        );
+        setResult(null);
+        setRealSource(res.source ?? null);
+        return;
+      }
+      setResult({ matched_rule: res.matched_rule, proposal: res.proposal, provider_used: res.provider_used ?? "" });
+      setRealSource(res.source ?? null);
+      setApproved(false);
+      toast.success("Fetched a real SEBI circular", { description: res.source?.title });
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Could not reach SEBI's site";
+      setPollMessage(message);
+    } finally {
+      setPolling(false);
+    }
+  }
+
   async function handleDetect() {
     if (!noticeText.trim()) return;
     setDetecting(true);
     setDetectError(null);
     setResult(null);
     setApproved(false);
+    setRealSource(null);
+    setPollMessage(null);
     try {
       const res = await api.agenticDetect(noticeText, "fast");
       setResult(res);
@@ -92,6 +136,26 @@ export default function CircularMonitor() {
         subtitle="The agentic loop, closed: a new circular comes in, RegCheck finds the obligation it amends and drafts the fix — a human still approves before anything runs."
       />
 
+      <Card className="mb-6 border-teal-200 dark:border-teal-900/50">
+        <CardContent className="p-6">
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+            <Globe className="h-4 w-4 text-teal-600" /> Fetch a real circular from SEBI
+          </div>
+          <p className="mb-4 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+            Polls SEBI's actual, live circulars index (sebi.gov.in), downloads whichever circular
+            hasn't been processed yet, extracts its real PDF text, and runs it through the same
+            monitor → diff → propose pipeline as the samples below — no canned text.
+          </p>
+          <Button variant="teal" disabled={polling} onClick={handlePollSebi}>
+            {polling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+            {polling ? "Fetching from sebi.gov.in…" : "Poll SEBI's live feed"}
+          </Button>
+          {pollMessage && (
+            <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{pollMessage}</p>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="mb-6">
         <CardContent className="p-6">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
@@ -129,6 +193,33 @@ export default function CircularMonitor() {
       <AnimatePresence>
         {result && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            {realSource && (
+              <Card className="border-teal-200 bg-teal-50/50 dark:border-teal-900/50 dark:bg-teal-900/10">
+                <CardContent className="flex flex-wrap items-start justify-between gap-3 p-5">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-4.5 w-4.5 shrink-0 text-teal-600 dark:text-teal-400" />
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-400">
+                        Real SEBI circular
+                      </div>
+                      <div className="text-sm font-medium text-slate-800 dark:text-slate-200">{realSource.title}</div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {realSource.circular_no && <>Circular No. {realSource.circular_no} · </>}
+                        {realSource.date}
+                      </div>
+                    </div>
+                  </div>
+                  <a
+                    href={realSource.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex shrink-0 items-center gap-1 text-xs font-medium text-teal-700 hover:underline dark:text-teal-400"
+                  >
+                    View on sebi.gov.in <ExternalLink className="h-3 w-3" />
+                  </a>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardContent className="p-6">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
