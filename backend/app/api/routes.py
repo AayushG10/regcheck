@@ -409,6 +409,30 @@ class AgenticDetectRequest(BaseModel):
     llm_tier: str = "fast"  # "fast" -> Groq, "strong" -> OpenRouter
 
 
+# A "fuzzy" match (diff_node found no explicit paragraph citation and fell
+# back to keyword similarity) is a guess about the match itself, which the
+# LLM's own confidence score never accounts for -- that score only reflects
+# how sure the LLM is about the drafted *parameters*, given the match as an
+# assumed premise. Capping it here keeps a fuzzy result from ever looking as
+# trustworthy as a real citation match in the UI's confidence badge.
+_FUZZY_MATCH_CONFIDENCE_CAP = 0.5
+
+
+def _agentic_response(result: dict) -> dict:
+    matched_rule = store.get_rule(result["matched_rule_id"])
+    proposal = dict(result["proposal_json"])
+    match_type = result.get("match_type", "citation")
+    if match_type == "fuzzy":
+        proposal["confidence"] = min(proposal.get("confidence", 1.0), _FUZZY_MATCH_CONFIDENCE_CAP)
+    return {
+        "matched_rule": matched_rule,
+        "proposal": proposal,
+        "provider_used": result["provider_used"],
+        "match_type": match_type,
+        "match_score": result.get("match_score"),
+    }
+
+
 @router.post("/agentic/detect")
 def agentic_detect(body: AgenticDetectRequest) -> dict:
     result = run_amendment_pipeline(body.notice_text, body.llm_tier)
@@ -416,12 +440,7 @@ def agentic_detect(body: AgenticDetectRequest) -> dict:
     if result.get("error"):
         raise HTTPException(422, result["error"])
 
-    matched_rule = store.get_rule(result["matched_rule_id"])
-    return {
-        "matched_rule": matched_rule,
-        "proposal": result["proposal_json"],
-        "provider_used": result["provider_used"],
-    }
+    return _agentic_response(result)
 
 
 # ---------------------------------------------------------------------
@@ -518,14 +537,11 @@ def agentic_poll_sebi(body: SebiPollRequest) -> dict:
             "error": result["error"],
         }
 
-    matched_rule = store.get_rule(result["matched_rule_id"])
     return {
         "new_circular_found": True,
         "source": {"title": detail.title, "link": detail.link, "circular_no": detail.circular_no, "date": detail.date, "pdf_url": detail.pdf_url},
         "notice_text": detail.text,
-        "matched_rule": matched_rule,
-        "proposal": result["proposal_json"],
-        "provider_used": result["provider_used"],
+        **_agentic_response(result),
     }
 
 

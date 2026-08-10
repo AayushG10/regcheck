@@ -29,6 +29,8 @@ class AmendmentPipelineState(TypedDict, total=False):
 
     matched_rule_id: str
     matched_clause_id: str
+    match_type: str  # "citation" (notice explicitly cites the rule's para) or "fuzzy" (keyword-similarity fallback, no citation found)
+    match_score: int  # number of overlapping keywords backing a "fuzzy" match; irrelevant/absent for "citation"
 
     proposal_raw: str
     proposal_json: dict[str, Any]

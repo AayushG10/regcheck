@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Radar, Sparkles, ArrowRight, ShieldCheck, History, FileText, Globe, ExternalLink, CheckCircle2, Loader2, Search, CircleDot } from "lucide-react";
+import { Radar, Sparkles, ArrowRight, ShieldCheck, History, FileText, Globe, ExternalLink, CheckCircle2, Loader2, Search, CircleDot, AlertTriangle, Quote } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,7 +95,13 @@ export default function CircularMonitor() {
         setRealSource(res.source ?? null);
         return;
       }
-      setResult({ matched_rule: res.matched_rule, proposal: res.proposal, provider_used: res.provider_used ?? "" });
+      setResult({
+        matched_rule: res.matched_rule,
+        proposal: res.proposal,
+        provider_used: res.provider_used ?? "",
+        match_type: res.match_type ?? "citation",
+        match_score: res.match_score,
+      });
       setRealSource(res.source ?? null);
       setApproved(false);
       toast.success("Fetched a real SEBI circular", { description: res.source?.title });
@@ -330,8 +336,17 @@ export default function CircularMonitor() {
               <CardContent className="p-6">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-wide text-teal-600 dark:text-teal-400">
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-teal-600 dark:text-teal-400">
                       Matched obligation
+                      {result.match_type === "fuzzy" ? (
+                        <Badge variant="warning">
+                          <AlertTriangle className="h-3 w-3" /> keyword match, not cited
+                        </Badge>
+                      ) : (
+                        <Badge variant="teal">
+                          <Quote className="h-3 w-3" /> clause explicitly cited
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-sm font-semibold text-slate-900 dark:text-white">
                       {result.matched_rule.title}
@@ -339,6 +354,19 @@ export default function CircularMonitor() {
                   </div>
                   <ClauseLink clauseId={result.matched_rule.clause_id} citation={result.matched_rule.citation} />
                 </div>
+
+                {result.match_type === "fuzzy" && (
+                  <p className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      This circular doesn&apos;t explicitly cite Para {result.matched_rule.citation.para} — RegCheck
+                      matched it by keyword similarity only ({result.match_score} overlapping term
+                      {result.match_score === 1 ? "" : "s"}), because no rule&apos;s paragraph was cited anywhere in
+                      the text. That&apos;s a guess, not a fact — confidence is capped and you should read the
+                      source circular yourself before approving.
+                    </span>
+                  </p>
+                )}
 
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">

@@ -101,6 +101,22 @@ our rules is a plain string match, not something that benefits from (or should r
 an LLM's judgment. The LLM only re-enters at `propose_node`, drafting *what the new
 parameter should be* — same discipline as extraction.
 
+`diff_node` actually runs two tiers, kept deliberately apart rather than blended into
+one score. **"citation"** is the case above — a paragraph reference is explicitly
+printed in the notice. **"fuzzy"** is a fallback used only when no rule's paragraph is
+cited anywhere (most real SEBI circulars, since any given one covers dozens of topics
+RegCheck has no rule for): a keyword-overlap score between the notice and each rule's
+own text (title, description, and original clause wording), gated by a minimum score,
+a domain-noise stopword list (generic words like "sebi", "broker", "circular" that
+say nothing about *which* obligation is meant), and a required margin over the
+runner-up score — added after live polling against SEBI's actual feed turned up two
+real false positives that a naive score threshold let through on nothing but shared
+filing boilerplate ("certificate", "submitted", "days"), not genuine topical overlap.
+Both the threshold and margin were set from those observed failures, not guessed in
+advance. A "fuzzy" match is still explicitly a guess — the API caps its confidence at
+0.5 regardless of what the LLM proposes, and the UI labels it "keyword match, not
+cited" rather than presenting it identically to a citation match.
+
 Both graphs are intentionally small and linear rather than heavily branched, because
 the interesting complexity in RegCheck is the deterministic engine and the audit
 trail behind it, not the graph topology. LangGraph earns its place here specifically

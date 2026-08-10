@@ -149,6 +149,8 @@ export interface AmendmentCommitResult {
   run: CheckRun;
 }
 
+export type MatchType = "citation" | "fuzzy";
+
 export interface AgenticDetectResult {
   matched_rule: Rule;
   proposal: {
@@ -157,6 +159,8 @@ export interface AgenticDetectResult {
     rationale: string;
   };
   provider_used: string;
+  match_type: MatchType;
+  match_score?: number | null;
 }
 
 export interface SebiFeedItem {
@@ -183,6 +187,8 @@ export interface SebiPollResult {
   matched_rule?: Rule;
   proposal?: { params: Record<string, unknown>; confidence: number; rationale: string };
   provider_used?: string;
+  match_type?: MatchType;
+  match_score?: number | null;
   error?: string;
 }
 
