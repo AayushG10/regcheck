@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
 import ErrorCard from "./ErrorCard";
 import ClauseLink from "./ClauseLink";
+import ChartTooltip from "./ChartTooltip";
 import { api, type Tier } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 
@@ -71,16 +72,36 @@ export default function CoverageMap() {
                         ))}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}
+                        content={({ active, payload }) => (
+                          <ChartTooltip
+                            active={active}
+                            rows={
+                              payload?.map((p) => ({
+                                name: String(p.name),
+                                value: p.value as number,
+                                color: (p.payload as { key: Tier })?.key ? TIER_META[(p.payload as { key: Tier }).key].color : "#94a3b8",
+                              })) ?? []
+                            }
+                          />
+                        )}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-bold text-slate-900 dark:text-white">{data.coverage_pct}%</span>
+                    <span className="text-3xl font-bold tabular-nums text-slate-900 dark:text-white">{data.coverage_pct}%</span>
                     <span className="text-xs text-slate-400">auto coverage</span>
                   </div>
                 </div>
-                <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+
+                <div className="mt-6 flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                  {(["auto", "evidence", "judgment"] as const).map((tier) => (
+                    <span key={tier} className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: TIER_META[tier].color }} />
+                      {TIER_META[tier].label.split(" ")[0]} ({data[tier]})
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-center text-sm text-slate-500 dark:text-slate-400">
                   {data.total} obligations extracted from the corpus
                 </p>
               </CardContent>

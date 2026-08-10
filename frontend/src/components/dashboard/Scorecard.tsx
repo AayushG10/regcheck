@@ -8,10 +8,12 @@ import {
   Bar,
   XAxis,
   YAxis,
+  CartesianGrid,
+  LabelList,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
 } from "recharts";
-import { ChevronDown, CheckCircle2, XCircle, MinusCircle, Search, Download, FileJson, FileSpreadsheet } from "lucide-react";
+import { ChevronDown, CheckCircle2, XCircle, MinusCircle, Search, Download, FileJson, FileSpreadsheet, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "./PageHeader";
 import ErrorCard from "./ErrorCard";
 import ClauseLink from "./ClauseLink";
+import ChartTooltip from "./ChartTooltip";
 import { api, type CheckResult, type Verdict } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
@@ -29,6 +32,12 @@ const VERDICT_CONFIG = {
   FAIL: { icon: XCircle, badge: "fail" as const, ring: "ring-rose-200 dark:ring-rose-900" },
   NOT_APPLICABLE: { icon: MinusCircle, badge: "neutral" as const, ring: "ring-slate-200 dark:ring-slate-800" },
 };
+
+// Single source of truth for the PASS/FAIL colors used across the Scorecard's
+// charts, badges, and row icons — matches Badge's `pass`/`fail` variants
+// (emerald/rose) so a chart color and a status pill never disagree.
+const PASS_COLOR = "#10b981"; // emerald-500
+const FAIL_COLOR = "#f43f5e"; // rose-500
 
 const VERDICT_FILTERS: Array<{ label: string; value: Verdict | "ALL" }> = [
   { label: "All", value: "ALL" },
@@ -135,7 +144,7 @@ export default function Scorecard() {
                     <RadialBarChart
                       innerRadius="72%"
                       outerRadius="100%"
-                      data={[{ name: "score", value: complianceScore, fill: complianceScore >= 60 ? "#0d9488" : "#e11d48" }]}
+                      data={[{ name: "score", value: complianceScore, fill: complianceScore >= 60 ? PASS_COLOR : FAIL_COLOR }]}
                       startAngle={90}
                       endAngle={-270}
                     >
@@ -166,24 +175,96 @@ export default function Scorecard() {
 
             <Card className="lg:col-span-3">
               <CardContent className="p-6">
-                <div className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Pass/fail by category</div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={categoryBreakdown} layout="vertical" margin={{ left: 8, right: 16 }}>
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--color-slate-400)" />
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">Pass/fail by category</div>
+                  <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PASS_COLOR }} />
+                      Pass ({data.passed})
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: FAIL_COLOR }} />
+                      Fail ({data.failed})
+                    </span>
+                    {categoryFilter !== "ALL" && (
+                      <button
+                        onClick={() => setCategoryFilter("ALL")}
+                        className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50"
+                      >
+                        {categoryFilter} <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart
+                    data={categoryBreakdown}
+                    layout="vertical"
+                    margin={{ left: 8, right: 28, top: 4, bottom: 4 }}
+                    barCategoryGap="28%"
+                  >
+                    <CartesianGrid horizontal={false} stroke="var(--color-slate-200)" strokeDasharray="3 3" className="dark:opacity-20 opacity-60" />
+                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--color-slate-400)" axisLine={false} tickLine={false} />
                     <YAxis
                       type="category"
                       dataKey="category"
                       width={140}
                       tick={{ fontSize: 11 }}
                       stroke="var(--color-slate-400)"
+                      axisLine={false}
+                      tickLine={false}
                     />
                     <RechartsTooltip
-                      contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}
+                      cursor={{ fill: "var(--color-slate-100)", opacity: 0.4 }}
+                      content={({ active, label, payload }) => (
+                        <ChartTooltip
+                          active={active}
+                          label={label !== undefined ? String(label) : undefined}
+                          rows={
+                            payload?.map((p) => ({
+                              name: p.name === "PASS" ? "Pass" : "Fail",
+                              value: p.value as number,
+                              color: p.name === "PASS" ? PASS_COLOR : FAIL_COLOR,
+                            })) ?? []
+                          }
+                        />
+                      )}
                     />
-                    <Bar dataKey="PASS" stackId="v" fill="#10b981" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="FAIL" stackId="v" fill="#f43f5e" radius={[0, 4, 4, 0]} />
+                    <Bar
+                      dataKey="PASS"
+                      name="PASS"
+                      stackId="v"
+                      fill={PASS_COLOR}
+                      radius={[0, 0, 0, 0]}
+                      cursor="pointer"
+                      onClick={(entry) => setCategoryFilter((entry as unknown as { category: string }).category)}
+                    >
+                      <LabelList
+                        dataKey="PASS"
+                        position="insideRight"
+                        formatter={(v: unknown) => (typeof v === "number" && v > 0 ? v : "")}
+                        style={{ fill: "white", fontSize: 11, fontWeight: 600 }}
+                      />
+                    </Bar>
+                    <Bar
+                      dataKey="FAIL"
+                      name="FAIL"
+                      stackId="v"
+                      fill={FAIL_COLOR}
+                      radius={[0, 4, 4, 0]}
+                      cursor="pointer"
+                      onClick={(entry) => setCategoryFilter((entry as unknown as { category: string }).category)}
+                    >
+                      <LabelList
+                        dataKey="FAIL"
+                        position="insideRight"
+                        formatter={(v: unknown) => (typeof v === "number" && v > 0 ? v : "")}
+                        style={{ fill: "white", fontSize: 11, fontWeight: 600 }}
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+                <p className="mt-2 text-center text-[11px] text-slate-400">Click a bar to filter the list below by that category.</p>
               </CardContent>
             </Card>
           </div>
