@@ -14,6 +14,12 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      # Pinned because pydantic-core's prebuilt wheels lag behind new Python
+      # releases -- without this, Render defaults to the newest Python
+      # available (3.14 at time of writing) and pip falls back to compiling
+      # pydantic-core from source, which fails on Render's build image.
+      - key: PYTHON_VERSION
+        value: 3.12.7
       - key: GROQ_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
